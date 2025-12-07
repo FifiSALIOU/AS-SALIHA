@@ -63,6 +63,57 @@ function SecretaryDashboard({ token }: SecretaryDashboardProps) {
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [showNotifications, setShowNotifications] = useState<boolean>(false);
   const [userInfo, setUserInfo] = useState<UserRead | null>(null);
+  const [showGenerateReport, setShowGenerateReport] = useState<boolean>(false);
+  const [reportType, setReportType] = useState<string>("");
+  const [reportPeriodFrom, setReportPeriodFrom] = useState<string>("2024-01-01");
+  const [reportPeriodTo, setReportPeriodTo] = useState<string>("2024-01-31");
+  const [reportFilters, setReportFilters] = useState({
+    department: "all",
+    technician: "all",
+    ticketType: "all",
+    priority: "all"
+  });
+  const [showOutputFormat, setShowOutputFormat] = useState<boolean>(false);
+  const [outputFormat, setOutputFormat] = useState<string>("");
+  const [recentReports, setRecentReports] = useState<any[]>([]);
+
+  // Fonction pour charger les rapports récents
+  async function loadRecentReports() {
+    if (!token || token.trim() === "") {
+      return;
+    }
+    
+    try {
+      // Pour l'instant, on simule des rapports basés sur les tickets
+      // Plus tard, on pourra appeler une vraie API /reports/recent
+      const reports = [
+        {
+          id: "1",
+          name: "Performance Janvier 2024",
+          generated_by: userInfo?.full_name || "Admin",
+          date: new Date().toLocaleDateString("fr-FR"),
+          type: "performance"
+        },
+        {
+          id: "2",
+          name: "Tickets par Département",
+          generated_by: "DSI",
+          date: new Date(Date.now() - 86400000).toLocaleDateString("fr-FR"),
+          type: "tickets_department"
+        },
+        {
+          id: "3",
+          name: "Satisfaction Utilisateurs",
+          generated_by: userInfo?.full_name || "Admin",
+          date: new Date(Date.now() - 172800000).toLocaleDateString("fr-FR"),
+          type: "satisfaction"
+        }
+      ];
+      setRecentReports(reports);
+    } catch (err) {
+      console.error("Erreur lors du chargement des rapports récents:", err);
+    }
+  }
 
   async function loadNotifications() {
     if (!token || token.trim() === "") {
@@ -191,6 +242,21 @@ function SecretaryDashboard({ token }: SecretaryDashboardProps) {
     
     return () => clearInterval(interval);
   }, [token]);
+
+  // Charger les rapports récents quand userInfo est disponible
+  useEffect(() => {
+    if (userInfo) {
+      loadRecentReports();
+    }
+  }, [userInfo]);
+
+  // Debug: vérifier l'état de showGenerateReport
+  useEffect(() => {
+    if (showGenerateReport) {
+      console.log("✅ showGenerateReport est maintenant TRUE - Le formulaire devrait s'afficher");
+      console.log("showOutputFormat:", showOutputFormat);
+    }
+  }, [showGenerateReport, showOutputFormat]);
 
   async function handleAssign(ticketId: string) {
     if (!selectedTechnician) {
@@ -1510,36 +1576,681 @@ function SecretaryDashboard({ token }: SecretaryDashboardProps) {
 
           {activeSection === "reports" && (roleName === "Adjoint DSI" || roleName === "DSI" || roleName === "Admin") && (
             <>
-              <h2 style={{ marginBottom: "24px", fontSize: "28px", fontWeight: "600", color: "#333" }}>Rapports et Métriques</h2>
+              <h2 style={{ marginBottom: "24px", fontSize: "28px", fontWeight: "600", color: "#333" }}>Rapports</h2>
               
-              {!selectedReport && (
+              {!selectedReport && !showGenerateReport && (
                 <div style={{ background: "white", padding: "24px", borderRadius: "8px", boxShadow: "0 2px 4px rgba(0,0,0,0.1)" }}>
-                  <p style={{ color: "#666", fontSize: "16px", marginBottom: "20px" }}>Sélectionnez un type de rapport dans le menu latéral</p>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "16px" }}>
-                    <div style={{ padding: "16px", border: "1px solid #eee", borderRadius: "8px", cursor: "pointer" }} onClick={() => setSelectedReport("statistiques")}>
-                      <h3 style={{ margin: "0 0 8px 0", fontSize: "18px", color: "#333" }}>📊 Statistiques générales</h3>
-                      <p style={{ margin: 0, color: "#666", fontSize: "14px" }}>Nombre total, répartition par statut, priorité, type</p>
+                  <div style={{ marginBottom: "32px" }}>
+                    <h3 style={{ marginBottom: "20px", fontSize: "20px", fontWeight: "600" }}>
+                      <span style={{ color: "#dc3545" }}>Types</span>{" "}
+                      <span style={{ color: "#000" }}>de</span>{" "}
+                      <span style={{ color: "#dc3545" }}>Rapports</span> :
+                    </h3>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                      <div 
+                        style={{ 
+                          display: "flex", 
+                          alignItems: "center", 
+                          gap: "8px", 
+                          padding: "12px",
+                          cursor: "pointer",
+                          borderRadius: "4px",
+                          transition: "background-color 0.2s"
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#f8f9fa"}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                        onClick={() => setSelectedReport("performance")}
+                      >
+                        <div style={{ width: "16px", height: "16px", display: "flex", alignItems: "center", justifyContent: "center", color: "#007bff" }}>
+                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#007bff" strokeWidth="1.5">
+                            <path d="M2 2v8h8" />
+                          </svg>
+                        </div>
+                        <div style={{ width: "24px", height: "24px", display: "flex", alignItems: "center", justifyContent: "center", color: "#007bff" }}>
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                            <rect x="4" y="14" width="3" height="6" fill="#007bff" />
+                            <rect x="9" y="10" width="3" height="10" fill="#28a745" />
+                            <rect x="14" y="6" width="3" height="14" fill="#28a745" />
+                          </svg>
+                        </div>
+                        <span style={{ fontSize: "16px" }}>
+                          <span style={{ color: "#dc3545" }}>Rapports</span>{" "}
+                          <span style={{ color: "#000" }}>de</span>{" "}
+                          <span style={{ color: "#dc3545" }}>Performance</span>
+                        </span>
+                      </div>
+                      <div 
+                        style={{ 
+                          display: "flex", 
+                          alignItems: "center", 
+                          gap: "8px", 
+                          padding: "12px",
+                          cursor: "pointer",
+                          borderRadius: "4px",
+                          transition: "background-color 0.2s"
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#f8f9fa"}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                        onClick={() => setSelectedReport("utilisateurs")}
+                      >
+                        <div style={{ width: "16px", height: "16px", display: "flex", alignItems: "center", justifyContent: "center", color: "#007bff" }}>
+                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#007bff" strokeWidth="1.5">
+                            <path d="M2 2v8h8" />
+                          </svg>
+                        </div>
+                        <div style={{ width: "24px", height: "24px", display: "flex", alignItems: "center", justifyContent: "center", color: "#007bff" }}>
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                            <circle cx="9" cy="7" r="4" />
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                          </svg>
+                        </div>
+                        <span style={{ fontSize: "16px", color: "#dc3545" }}>Rapports Utilisateurs</span>
+                      </div>
+                      <div 
+                        style={{ 
+                          display: "flex", 
+                          alignItems: "center", 
+                          gap: "8px", 
+                          padding: "12px",
+                          cursor: "pointer",
+                          borderRadius: "4px",
+                          transition: "background-color 0.2s"
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#f8f9fa"}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                        onClick={() => setSelectedReport("tickets")}
+                      >
+                        <div style={{ width: "16px", height: "16px", display: "flex", alignItems: "center", justifyContent: "center", color: "#007bff" }}>
+                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#007bff" strokeWidth="1.5">
+                            <path d="M2 2v8h8" />
+                          </svg>
+                        </div>
+                        <div style={{ width: "24px", height: "24px", display: "flex", alignItems: "center", justifyContent: "center", color: "#ffc107" }}>
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect x="3" y="4" width="18" height="16" rx="2" fill="none" />
+                            <path d="M3 8h18" />
+                            <path d="M8 12h8" />
+                          </svg>
+                        </div>
+                        <span style={{ fontSize: "16px", color: "#dc3545" }}>Rapports Tickets</span>
+                      </div>
+                      <div 
+                        style={{ 
+                          display: "flex", 
+                          alignItems: "center", 
+                          gap: "8px", 
+                          padding: "12px",
+                          cursor: "pointer",
+                          borderRadius: "4px",
+                          transition: "background-color 0.2s"
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#f8f9fa"}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                        onClick={() => setSelectedReport("techniciens")}
+                      >
+                        <div style={{ width: "16px", height: "16px", display: "flex", alignItems: "center", justifyContent: "center", color: "#007bff" }}>
+                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#007bff" strokeWidth="1.5">
+                            <path d="M2 2v8h8" />
+                          </svg>
+                        </div>
+                        <div style={{ width: "24px", height: "24px", display: "flex", alignItems: "center", justifyContent: "center", color: "#dc3545" }}>
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="3" y1="20" x2="21" y2="20" />
+                            <line x1="3" y1="20" x2="3" y2="4" />
+                            <polyline points="4 16 8 12 12 8 16 6 20 4" stroke="#dc3545" fill="none" />
+                          </svg>
+                        </div>
+                        <span style={{ fontSize: "16px", color: "#dc3545" }}>Rapports Techniciens</span>
+                      </div>
+                      <div 
+                        style={{ 
+                          display: "flex", 
+                          alignItems: "center", 
+                          gap: "8px", 
+                          padding: "12px",
+                          cursor: "pointer",
+                          borderRadius: "4px",
+                          transition: "background-color 0.2s"
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#f8f9fa"}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                        onClick={() => setSelectedReport("audit")}
+                      >
+                        <div style={{ width: "16px", height: "16px", display: "flex", alignItems: "center", justifyContent: "center", color: "#007bff" }}>
+                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#007bff" strokeWidth="1.5">
+                            <path d="M2 2v8h8" />
+                          </svg>
+                        </div>
+                        <div style={{ width: "24px", height: "24px", display: "flex", alignItems: "center", justifyContent: "center", color: "#6c757d" }}>
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="11" cy="11" r="8" />
+                            <path d="M21 21l-4.35-4.35" />
+                          </svg>
+                        </div>
+                        <span style={{ fontSize: "16px" }}>
+                          <span style={{ color: "#dc3545" }}>Audit</span>{" "}
+                          <span style={{ color: "#000" }}>et</span>{" "}
+                          <span style={{ color: "#dc3545" }}>Logs</span>
+                        </span>
+                      </div>
                     </div>
-                    <div style={{ padding: "16px", border: "1px solid #eee", borderRadius: "8px", cursor: "pointer" }} onClick={() => setSelectedReport("metriques")}>
-                      <h3 style={{ margin: "0 0 8px 0", fontSize: "18px", color: "#333" }}>⚡ Métriques de performance</h3>
-                      <p style={{ margin: 0, color: "#666", fontSize: "14px" }}>Temps moyen, satisfaction, escalades, réouvertures</p>
+                  </div>
+
+                  <div>
+                    <h3 style={{ marginBottom: "20px", fontSize: "20px", fontWeight: "600", color: "#333" }}>
+                      <span style={{ color: "#dc3545" }}>Rapports</span>{" "}
+                      <span style={{ color: "#dc3545" }}>Récents</span> :
+                    </h3>
+                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                      <thead>
+                        <tr style={{ background: "#f8f9fa", borderBottom: "2px solid #dee2e6" }}>
+                          <th style={{ padding: "12px", textAlign: "left", fontWeight: "600", color: "#333" }}>Rapport</th>
+                          <th style={{ padding: "12px", textAlign: "left", fontWeight: "600", color: "#333" }}>Généré par</th>
+                          <th style={{ padding: "12px", textAlign: "left", fontWeight: "600", color: "#333" }}>Date</th>
+                          <th style={{ padding: "12px", textAlign: "left", fontWeight: "600", color: "#333" }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {recentReports.length > 0 ? (
+                          recentReports.map((report) => (
+                            <tr key={report.id} style={{ borderBottom: "1px solid #dee2e6" }}>
+                              <td style={{ padding: "12px" }}>
+                                <span style={{ color: "#007bff", textDecoration: "underline", cursor: "pointer" }}>{report.name}</span>
+                              </td>
+                              <td style={{ padding: "12px", color: "#333" }}>{report.generated_by}</td>
+                              <td style={{ padding: "12px" }}>
+                                <span style={{ color: "#007bff", textDecoration: "underline", cursor: "pointer" }}>{report.date}</span>
+                              </td>
+                              <td style={{ padding: "12px" }}>
+                                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                                  <button 
+                                    onClick={() => {
+                                      // Voir le rapport
+                                      console.log("Voir rapport:", report.id);
+                                    }}
+                                    style={{ 
+                                      padding: "6px 10px", 
+                                      backgroundColor: "transparent", 
+                                      color: "#007bff", 
+                                      border: "none", 
+                                      borderRadius: "4px", 
+                                      cursor: "pointer",
+                                      fontSize: "16px"
+                                    }}
+                                    title="Voir"
+                                  >
+                                    👁️
+                                  </button>
+                                  <button 
+                                    onClick={() => {
+                                      // Télécharger le rapport
+                                      console.log("Télécharger rapport:", report.id);
+                                    }}
+                                    style={{ 
+                                      padding: "6px 10px", 
+                                      backgroundColor: "transparent", 
+                                      color: "#007bff", 
+                                      border: "none", 
+                                      borderRadius: "4px", 
+                                      cursor: "pointer",
+                                      fontSize: "16px"
+                                    }}
+                                    title="Télécharger"
+                                  >
+                                    ⬇️
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={4} style={{ padding: "12px", color: "#666", textAlign: "center" }}>
+                              Aucun rapport récent
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div style={{ marginTop: "32px", textAlign: "left" }}>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log("Bouton cliqué - ouverture du formulaire");
+                        console.log("showGenerateReport avant:", showGenerateReport);
+                        console.log("showOutputFormat avant:", showOutputFormat);
+                        // Forcer le re-render en utilisant une fonction de callback
+                        setShowGenerateReport((prev) => {
+                          console.log("setShowGenerateReport appelé, prev:", prev);
+                          return true;
+                        });
+                        setShowOutputFormat(false);
+                        setSelectedReport("");
+                        console.log("showGenerateReport devrait être true maintenant");
+                      }}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        color: "#333",
+                        fontSize: "16px",
+                        cursor: "pointer",
+                        padding: "8px 0",
+                        fontWeight: "500"
+                      }}
+                    >
+                      [+ Générer un nouveau rapport]
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Formulaire de génération de rapport */}
+              {showGenerateReport && !showOutputFormat && (
+                <div key="generate-report-form" style={{ background: "white", padding: "32px", borderRadius: "8px", boxShadow: "0 4px 8px rgba(0,0,0,0.15)", marginTop: "24px", zIndex: 1000, position: "relative", width: "100%", minHeight: "200px", border: "2px solid #007bff" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "32px" }}>
+                    <h2 style={{ fontSize: "24px", fontWeight: "700", color: "#1e3a5f", margin: 0, fontFamily: "monospace", textTransform: "uppercase", letterSpacing: "1px" }}>GÉNÉRER UN RAPPORT</h2>
+                    <button
+                      onClick={() => {
+                        setShowGenerateReport(false);
+                        setShowOutputFormat(false);
+                        setReportType("");
+                        setReportPeriodFrom("2024-01-01");
+                        setReportPeriodTo("2024-01-31");
+                        setReportFilters({ department: "all", technician: "all", ticketType: "all", priority: "all" });
+                        setOutputFormat("");
+                      }}
+                      style={{
+                        padding: "8px 16px",
+                        backgroundColor: "transparent",
+                        color: "#1e3a5f",
+                        border: "1px solid #1e3a5f",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        fontWeight: "500"
+                      }}
+                    >
+                      ✕ Fermer
+                    </button>
+                  </div>
+                  <div style={{ marginBottom: "32px" }}>
+                    <h3 style={{ fontSize: "20px", fontWeight: "600", color: "#1e3a5f", marginBottom: "20px", fontFamily: "monospace" }}>Type de Rapport *</h3>
+                    <div style={{ 
+                      border: "1px solid #007bff", 
+                      borderLeft: "3px solid #007bff",
+                      borderTop: "1px solid #007bff",
+                      borderRadius: "0 4px 4px 0",
+                      padding: "16px",
+                      position: "relative",
+                      backgroundColor: "#f8f9fa"
+                    }}>
+                      <select
+                        value={reportType}
+                        onChange={(e) => setReportType(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "10px",
+                          border: "1px solid #ddd",
+                          borderRadius: "4px",
+                          fontSize: "16px",
+                          color: "#333",
+                          backgroundColor: "white"
+                        }}
+                      >
+                        <option value="">[Sélectionner un type ▼]</option>
+                        <option value="performance">Performance Globale</option>
+                        <option value="tickets_department">Tickets par Département</option>
+                        <option value="technicians">Performance des Techniciens</option>
+                        <option value="satisfaction">Satisfaction Utilisateurs</option>
+                        <option value="recurrent">Problèmes Récurrents</option>
+                        <option value="audit">Audit et Logs</option>
+                      </select>
+                      <div style={{ marginTop: "16px", paddingLeft: "8px" }}>
+                        <div style={{ display: "flex", alignItems: "center", marginBottom: "8px" }}>
+                          <div style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#1e3a5f", marginRight: "12px" }}></div>
+                          <span style={{ color: "#1e3a5f", fontSize: "16px", fontFamily: "monospace" }}>Performance Globale</span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", marginBottom: "8px" }}>
+                          <div style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#1e3a5f", marginRight: "12px" }}></div>
+                          <span style={{ color: "#1e3a5f", fontSize: "16px", fontFamily: "monospace" }}>Tickets par Département</span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", marginBottom: "8px" }}>
+                          <div style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#1e3a5f", marginRight: "12px" }}></div>
+                          <span style={{ color: "#1e3a5f", fontSize: "16px", fontFamily: "monospace" }}>Performance des Techniciens</span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", marginBottom: "8px" }}>
+                          <div style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#1e3a5f", marginRight: "12px" }}></div>
+                          <span style={{ color: "#1e3a5f", fontSize: "16px", fontFamily: "monospace" }}>Satisfaction Utilisateurs</span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", marginBottom: "8px" }}>
+                          <div style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#1e3a5f", marginRight: "12px" }}></div>
+                          <span style={{ color: "#1e3a5f", fontSize: "16px", fontFamily: "monospace" }}>Problèmes Récurrents</span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center" }}>
+                          <div style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#1e3a5f", marginRight: "12px" }}></div>
+                          <span style={{ color: "#1e3a5f", fontSize: "16px", fontFamily: "monospace" }}>Audit et Logs</span>
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ padding: "16px", border: "1px solid #eee", borderRadius: "8px", cursor: "pointer" }} onClick={() => setSelectedReport("agence")}>
-                      <h3 style={{ margin: "0 0 8px 0", fontSize: "18px", color: "#333" }}>🏢 Analyses par agence</h3>
-                      <p style={{ margin: 0, color: "#666", fontSize: "14px" }}>Volume, temps moyen, satisfaction par agence</p>
+                  </div>
+
+                  <div style={{ marginBottom: "32px" }}>
+                    <h3 style={{ fontSize: "20px", fontWeight: "600", color: "#1e3a5f", marginBottom: "20px", fontFamily: "monospace" }}>Période *</h3>
+                    <div style={{ 
+                      border: "1px solid #007bff", 
+                      borderLeft: "3px solid #007bff",
+                      borderTop: "1px solid #007bff",
+                      borderRadius: "0 4px 4px 0",
+                      padding: "16px",
+                      backgroundColor: "#f8f9fa"
+                    }}>
+                      <div style={{ display: "flex", gap: "24px", alignItems: "center" }}>
+                        <div style={{ flex: 1 }}>
+                          <label style={{ display: "block", marginBottom: "8px", color: "#1e3a5f", fontSize: "16px" }}>Du :</label>
+                          <input
+                            type="date"
+                            value={reportPeriodFrom}
+                            onChange={(e) => setReportPeriodFrom(e.target.value)}
+                            style={{
+                              width: "100%",
+                              padding: "10px",
+                              border: "1px solid #ddd",
+                              borderRadius: "4px",
+                              fontSize: "16px",
+                              color: "#333"
+                            }}
+                          />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <label style={{ display: "block", marginBottom: "8px", color: "#1e3a5f", fontSize: "16px" }}>Au :</label>
+                          <input
+                            type="date"
+                            value={reportPeriodTo}
+                            onChange={(e) => setReportPeriodTo(e.target.value)}
+                            style={{
+                              width: "100%",
+                              padding: "10px",
+                              border: "1px solid #ddd",
+                              borderRadius: "4px",
+                              fontSize: "16px",
+                              color: "#333"
+                            }}
+                          />
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ padding: "16px", border: "1px solid #eee", borderRadius: "8px", cursor: "pointer" }} onClick={() => setSelectedReport("technicien")}>
-                      <h3 style={{ margin: "0 0 8px 0", fontSize: "18px", color: "#333" }}>👥 Analyses par technicien</h3>
-                      <p style={{ margin: 0, color: "#666", fontSize: "14px" }}>Tickets traités, temps moyen, charge, satisfaction</p>
+                  </div>
+
+                  <div style={{ marginBottom: "32px" }}>
+                    <h3 style={{ fontSize: "20px", fontWeight: "600", color: "#1e3a5f", marginBottom: "20px", fontFamily: "monospace" }}>Filtres (Optionnel)</h3>
+                    <div style={{ 
+                      border: "1px solid #007bff", 
+                      borderLeft: "3px solid #007bff",
+                      borderTop: "1px solid #007bff",
+                      borderRadius: "0 4px 4px 0",
+                      padding: "16px",
+                      backgroundColor: "#f8f9fa"
+                    }}>
+                      <div style={{ marginBottom: "16px" }}>
+                        <div style={{ display: "flex", alignItems: "center", marginBottom: "8px" }}>
+                          <div style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#1e3a5f", marginRight: "12px" }}></div>
+                          <label style={{ color: "#1e3a5f", fontSize: "16px", fontFamily: "monospace" }}>Département :</label>
+                        </div>
+                        <select
+                          value={reportFilters.department}
+                          onChange={(e) => setReportFilters({...reportFilters, department: e.target.value})}
+                          style={{
+                            width: "100%",
+                            padding: "10px",
+                            border: "1px solid #ddd",
+                            borderRadius: "4px",
+                            fontSize: "16px",
+                            color: "#333",
+                            backgroundColor: "white"
+                          }}
+                        >
+                          <option value="all">Tous</option>
+                        </select>
+                      </div>
+                      <div style={{ marginBottom: "16px" }}>
+                        <div style={{ display: "flex", alignItems: "center", marginBottom: "8px" }}>
+                          <div style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#1e3a5f", marginRight: "12px" }}></div>
+                          <label style={{ color: "#1e3a5f", fontSize: "16px", fontFamily: "monospace" }}>Technicien :</label>
+                        </div>
+                        <select
+                          value={reportFilters.technician}
+                          onChange={(e) => setReportFilters({...reportFilters, technician: e.target.value})}
+                          style={{
+                            width: "100%",
+                            padding: "10px",
+                            border: "1px solid #ddd",
+                            borderRadius: "4px",
+                            fontSize: "16px",
+                            color: "#333",
+                            backgroundColor: "white"
+                          }}
+                        >
+                          <option value="all">Tous</option>
+                          {technicians.map((tech) => (
+                            <option key={tech.id} value={tech.id}>{tech.full_name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div style={{ marginBottom: "16px" }}>
+                        <div style={{ display: "flex", alignItems: "center", marginBottom: "8px" }}>
+                          <div style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#1e3a5f", marginRight: "12px" }}></div>
+                          <label style={{ color: "#1e3a5f", fontSize: "16px", fontFamily: "monospace" }}>Type de Ticket :</label>
+                        </div>
+                        <select
+                          value={reportFilters.ticketType}
+                          onChange={(e) => setReportFilters({...reportFilters, ticketType: e.target.value})}
+                          style={{
+                            width: "100%",
+                            padding: "10px",
+                            border: "1px solid #ddd",
+                            borderRadius: "4px",
+                            fontSize: "16px",
+                            color: "#333",
+                            backgroundColor: "white"
+                          }}
+                        >
+                          <option value="all">Tous</option>
+                        </select>
+                      </div>
+                      <div>
+                        <div style={{ display: "flex", alignItems: "center", marginBottom: "8px" }}>
+                          <div style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#1e3a5f", marginRight: "12px" }}></div>
+                          <label style={{ color: "#1e3a5f", fontSize: "16px", fontFamily: "monospace" }}>Priorité :</label>
+                        </div>
+                        <select
+                          value={reportFilters.priority}
+                          onChange={(e) => setReportFilters({...reportFilters, priority: e.target.value})}
+                          style={{
+                            width: "100%",
+                            padding: "10px",
+                            border: "1px solid #ddd",
+                            borderRadius: "4px",
+                            fontSize: "16px",
+                            color: "#333",
+                            backgroundColor: "white"
+                          }}
+                        >
+                          <option value="all">Tous</option>
+                          <option value="critique">Critique</option>
+                          <option value="haute">Haute</option>
+                          <option value="moyenne">Moyenne</option>
+                          <option value="faible">Faible</option>
+                        </select>
+                      </div>
                     </div>
-                    <div style={{ padding: "16px", border: "1px solid #eee", borderRadius: "8px", cursor: "pointer" }} onClick={() => setSelectedReport("evolutions")}>
-                      <h3 style={{ margin: "0 0 8px 0", fontSize: "18px", color: "#333" }}>📈 Évolutions dans le temps</h3>
-                      <p style={{ margin: 0, color: "#666", fontSize: "14px" }}>Tendances, pics d'activité, performance</p>
+                  </div>
+
+                  <div style={{ display: "flex", gap: "16px", justifyContent: "flex-end", marginTop: "32px" }}>
+                    <button
+                      onClick={() => {
+                        setShowGenerateReport(false);
+                        setReportType("");
+                        setReportPeriodFrom("2024-01-01");
+                        setReportPeriodTo("2024-01-31");
+                        setReportFilters({ department: "all", technician: "all", ticketType: "all", priority: "all" });
+                      }}
+                      style={{
+                        padding: "10px 24px",
+                        backgroundColor: "transparent",
+                        color: "#1e3a5f",
+                        border: "1px solid #1e3a5f",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontSize: "16px",
+                        fontWeight: "500"
+                      }}
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (reportType && reportPeriodFrom && reportPeriodTo) {
+                          setShowOutputFormat(true);
+                        }
+                      }}
+                      disabled={!reportType || !reportPeriodFrom || !reportPeriodTo}
+                      style={{
+                        padding: "10px 24px",
+                        backgroundColor: reportType && reportPeriodFrom && reportPeriodTo ? "#1e3a5f" : "#ccc",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: reportType && reportPeriodFrom && reportPeriodTo ? "pointer" : "not-allowed",
+                        fontSize: "16px",
+                        fontWeight: "500"
+                      }}
+                    >
+                      Suivant
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Format de Sortie */}
+              {showGenerateReport && showOutputFormat && (
+                <div style={{ background: "white", padding: "32px", borderRadius: "8px", boxShadow: "0 2px 4px rgba(0,0,0,0.1)", marginTop: "24px" }}>
+                  <h3 style={{ fontSize: "20px", fontWeight: "600", color: "#1e3a5f", marginBottom: "24px", fontFamily: "monospace" }}>Format de Sortie</h3>
+                  <div style={{ 
+                    border: "2px dashed #1e3a5f",
+                    borderRadius: "4px",
+                    padding: "24px"
+                  }}>
+                    <div style={{ marginBottom: "16px" }}>
+                      <div style={{ display: "flex", alignItems: "center", marginBottom: "12px" }}>
+                        <div style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#1e3a5f", marginRight: "12px" }}></div>
+                        <label style={{ color: "#1e3a5f", fontSize: "16px", cursor: "pointer", flex: 1, fontFamily: "monospace" }}>
+                          <input
+                            type="radio"
+                            name="outputFormat"
+                            value="pdf"
+                            checked={outputFormat === "pdf"}
+                            onChange={(e) => setOutputFormat(e.target.value)}
+                            style={{ marginRight: "8px" }}
+                          />
+                          PDF
+                        </label>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", marginBottom: "12px" }}>
+                        <div style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#1e3a5f", marginRight: "12px" }}></div>
+                        <label style={{ color: "#1e3a5f", fontSize: "16px", cursor: "pointer", flex: 1, fontFamily: "monospace" }}>
+                          <input
+                            type="radio"
+                            name="outputFormat"
+                            value="excel"
+                            checked={outputFormat === "excel"}
+                            onChange={(e) => setOutputFormat(e.target.value)}
+                            style={{ marginRight: "8px" }}
+                          />
+                          Excel
+                        </label>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", marginBottom: "12px" }}>
+                        <div style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#1e3a5f", marginRight: "12px" }}></div>
+                        <label style={{ color: "#1e3a5f", fontSize: "16px", cursor: "pointer", flex: 1, fontFamily: "monospace" }}>
+                          <input
+                            type="radio"
+                            name="outputFormat"
+                            value="csv"
+                            checked={outputFormat === "csv"}
+                            onChange={(e) => setOutputFormat(e.target.value)}
+                            style={{ marginRight: "8px" }}
+                          />
+                          CSV
+                        </label>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center" }}>
+                        <div style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#1e3a5f", marginRight: "12px" }}></div>
+                        <label style={{ color: "#1e3a5f", fontSize: "16px", cursor: "pointer", flex: 1, fontFamily: "monospace" }}>
+                          <input
+                            type="radio"
+                            name="outputFormat"
+                            value="screen"
+                            checked={outputFormat === "screen"}
+                            onChange={(e) => setOutputFormat(e.target.value)}
+                            style={{ marginRight: "8px" }}
+                          />
+                          Afficher à l'écran
+                        </label>
+                      </div>
                     </div>
-                    <div style={{ padding: "16px", border: "1px solid #eee", borderRadius: "8px", cursor: "pointer" }} onClick={() => setSelectedReport("recurrents")}>
-                      <h3 style={{ margin: "0 0 8px 0", fontSize: "18px", color: "#333" }}>🔄 Problèmes récurrents</h3>
-                      <p style={{ margin: 0, color: "#666", fontSize: "14px" }}>Types fréquents, agences, patterns</p>
-                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: "16px", justifyContent: "flex-end", marginTop: "32px" }}>
+                    <button
+                      onClick={() => setShowOutputFormat(false)}
+                      style={{
+                        padding: "10px 24px",
+                        backgroundColor: "transparent",
+                        color: "#1e3a5f",
+                        border: "1px solid #1e3a5f",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontSize: "16px",
+                        fontWeight: "500",
+                        fontFamily: "monospace"
+                      }}
+                    >
+                      [Annuler]
+                    </button>
+                    <button
+                      onClick={() => {
+                        // Générer le rapport
+                        console.log("Génération du rapport:", { reportType, reportPeriodFrom, reportPeriodTo, reportFilters, outputFormat });
+                        // Réinitialiser le formulaire
+                        setShowGenerateReport(false);
+                        setShowOutputFormat(false);
+                        setReportType("");
+                        setReportPeriodFrom("2024-01-01");
+                        setReportPeriodTo("2024-01-31");
+                        setReportFilters({ department: "all", technician: "all", ticketType: "all", priority: "all" });
+                        setOutputFormat("");
+                      }}
+                      disabled={!outputFormat}
+                      style={{
+                        padding: "10px 24px",
+                        backgroundColor: outputFormat ? "#1e3a5f" : "#ccc",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: outputFormat ? "pointer" : "not-allowed",
+                        fontSize: "16px",
+                        fontWeight: "500",
+                        fontFamily: "monospace"
+                      }}
+                    >
+                      [Générer Rapport]
+                    </button>
                   </div>
                 </div>
               )}
@@ -1947,6 +2658,246 @@ function SecretaryDashboard({ token }: SecretaryDashboardProps) {
                               <td style={{ padding: "12px", textAlign: "right" }}>{count}</td>
                             </tr>
                           ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div style={{ display: "flex", gap: "12px", marginTop: "24px" }}>
+                    <button style={{ padding: "10px 20px", backgroundColor: "#007bff", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>Exporter PDF</button>
+                    <button style={{ padding: "10px 20px", backgroundColor: "#28a745", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>Exporter Excel</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Nouveaux types de rapports */}
+              {selectedReport === "performance" && (
+                <>
+                  {(() => {
+                    // Utiliser le même contenu que "metriques"
+                    const resolvedTickets = allTickets.filter((t) => t.status === "resolu" || t.status === "cloture");
+                    const rejectedTickets = allTickets.filter((t) => t.status === "rejete");
+                    const escalatedTickets = allTickets.filter((t) => t.priority === "critique" && (t.status === "en_attente_analyse" || t.status === "assigne_technicien" || t.status === "en_cours"));
+                    const reopenedTickets = rejectedTickets.filter(() => true);
+                    const avgResolutionDays = resolvedTickets.length > 0 ? Math.round(resolvedTickets.length / 2) : 0;
+                    const closedWithFeedback = resolvedTickets.filter((t: any) => t.feedback_score).length;
+                    const satisfactionRate = resolvedTickets.length > 0 ? ((closedWithFeedback / resolvedTickets.length) * 100).toFixed(1) : "0";
+                    const reopenRate = rejectedTickets.length > 0 ? ((reopenedTickets.length / rejectedTickets.length) * 100).toFixed(1) : "0";
+                    
+                    return (
+                      <div style={{ background: "white", padding: "24px", borderRadius: "8px", boxShadow: "0 2px 4px rgba(0,0,0,0.1)" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+                          <h3 style={{ fontSize: "22px", fontWeight: "600", color: "#333" }}>Rapports de Performance</h3>
+                          <button 
+                            style={{ padding: "8px 16px", backgroundColor: "#6c757d", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}
+                            onClick={() => setSelectedReport("")}
+                          >
+                            Retour
+                          </button>
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "20px", marginBottom: "24px" }}>
+                          <div style={{ padding: "16px", background: "#f8f9fa", borderRadius: "8px" }}>
+                            <div style={{ fontSize: "32px", fontWeight: "bold", color: "#ff9800", marginBottom: "8px" }}>{avgResolutionDays} jours</div>
+                            <div style={{ color: "#666" }}>Temps moyen de résolution</div>
+                          </div>
+                          <div style={{ padding: "16px", background: "#f8f9fa", borderRadius: "8px" }}>
+                            <div style={{ fontSize: "32px", fontWeight: "bold", color: "#4caf50", marginBottom: "8px" }}>{satisfactionRate}%</div>
+                            <div style={{ color: "#666" }}>Taux de satisfaction utilisateur</div>
+                          </div>
+                          <div style={{ padding: "16px", background: "#f8f9fa", borderRadius: "8px" }}>
+                            <div style={{ fontSize: "32px", fontWeight: "bold", color: "#dc3545", marginBottom: "8px" }}>{escalatedTickets.length}</div>
+                            <div style={{ color: "#666" }}>Tickets escaladés</div>
+                          </div>
+                          <div style={{ padding: "16px", background: "#f8f9fa", borderRadius: "8px" }}>
+                            <div style={{ fontSize: "32px", fontWeight: "bold", color: "#17a2b8", marginBottom: "8px" }}>{reopenRate}%</div>
+                            <div style={{ color: "#666" }}>Taux de réouverture</div>
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", gap: "12px", marginTop: "24px" }}>
+                          <button style={{ padding: "10px 20px", backgroundColor: "#007bff", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>Exporter PDF</button>
+                          <button style={{ padding: "10px 20px", backgroundColor: "#28a745", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>Exporter Excel</button>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </>
+              )}
+
+              {selectedReport === "tickets" && (
+                <div style={{ background: "white", padding: "24px", borderRadius: "8px", boxShadow: "0 2px 4px rgba(0,0,0,0.1)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+                    <h3 style={{ fontSize: "22px", fontWeight: "600", color: "#333" }}>Rapports Tickets</h3>
+                    <button 
+                      style={{ padding: "8px 16px", backgroundColor: "#6c757d", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}
+                      onClick={() => setSelectedReport("")}
+                    >
+                      Retour
+                    </button>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "20px", marginBottom: "24px" }}>
+                    <div style={{ padding: "16px", background: "#f8f9fa", borderRadius: "8px" }}>
+                      <div style={{ fontSize: "32px", fontWeight: "bold", color: "#007bff", marginBottom: "8px" }}>{allTickets.length}</div>
+                      <div style={{ color: "#666" }}>Nombre total de tickets</div>
+                    </div>
+                    <div style={{ padding: "16px", background: "#f8f9fa", borderRadius: "8px" }}>
+                      <div style={{ fontSize: "32px", fontWeight: "bold", color: "#28a745", marginBottom: "8px" }}>{resolvedCount + allTickets.filter((t) => t.status === "cloture").length}</div>
+                      <div style={{ color: "#666" }}>Tickets résolus/clôturés</div>
+                    </div>
+                  </div>
+                  <div style={{ marginBottom: "24px" }}>
+                    <h4 style={{ marginBottom: "12px", fontSize: "18px", fontWeight: "600", color: "#333" }}>Répartition par statut</h4>
+                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                      <thead>
+                        <tr style={{ background: "#f8f9fa" }}>
+                          <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #dee2e6" }}>Statut</th>
+                          <th style={{ padding: "12px", textAlign: "right", borderBottom: "1px solid #dee2e6" }}>Nombre</th>
+                          <th style={{ padding: "12px", textAlign: "right", borderBottom: "1px solid #dee2e6" }}>Pourcentage</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td style={{ padding: "12px" }}>En attente</td>
+                          <td style={{ padding: "12px", textAlign: "right" }}>{pendingTickets.length}</td>
+                          <td style={{ padding: "12px", textAlign: "right" }}>{allTickets.length > 0 ? ((pendingTickets.length / allTickets.length) * 100).toFixed(1) : 0}%</td>
+                        </tr>
+                        <tr>
+                          <td style={{ padding: "12px" }}>Assignés/En cours</td>
+                          <td style={{ padding: "12px", textAlign: "right" }}>{assignedTickets.length}</td>
+                          <td style={{ padding: "12px", textAlign: "right" }}>{allTickets.length > 0 ? ((assignedTickets.length / allTickets.length) * 100).toFixed(1) : 0}%</td>
+                        </tr>
+                        <tr>
+                          <td style={{ padding: "12px" }}>Résolus</td>
+                          <td style={{ padding: "12px", textAlign: "right" }}>{resolvedCount}</td>
+                          <td style={{ padding: "12px", textAlign: "right" }}>{allTickets.length > 0 ? ((resolvedCount / allTickets.length) * 100).toFixed(1) : 0}%</td>
+                        </tr>
+                        <tr>
+                          <td style={{ padding: "12px" }}>Clôturés</td>
+                          <td style={{ padding: "12px", textAlign: "right" }}>{allTickets.filter((t) => t.status === "cloture").length}</td>
+                          <td style={{ padding: "12px", textAlign: "right" }}>{allTickets.length > 0 ? ((allTickets.filter((t) => t.status === "cloture").length / allTickets.length) * 100).toFixed(1) : 0}%</td>
+                        </tr>
+                        <tr>
+                          <td style={{ padding: "12px" }}>Rejetés</td>
+                          <td style={{ padding: "12px", textAlign: "right" }}>{allTickets.filter((t) => t.status === "rejete").length}</td>
+                          <td style={{ padding: "12px", textAlign: "right" }}>{allTickets.length > 0 ? ((allTickets.filter((t) => t.status === "rejete").length / allTickets.length) * 100).toFixed(1) : 0}%</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div style={{ display: "flex", gap: "12px", marginTop: "24px" }}>
+                    <button style={{ padding: "10px 20px", backgroundColor: "#007bff", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>Exporter PDF</button>
+                    <button style={{ padding: "10px 20px", backgroundColor: "#28a745", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>Exporter Excel</button>
+                  </div>
+                </div>
+              )}
+
+              {selectedReport === "techniciens" && (
+                <>
+                  {(() => {
+                    // Utiliser le même contenu que "technicien"
+                    return (
+                      <div style={{ background: "white", padding: "24px", borderRadius: "8px", boxShadow: "0 2px 4px rgba(0,0,0,0.1)" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+                          <h3 style={{ fontSize: "22px", fontWeight: "600", color: "#333" }}>Rapports Techniciens</h3>
+                          <button 
+                            style={{ padding: "8px 16px", backgroundColor: "#6c757d", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}
+                            onClick={() => setSelectedReport("")}
+                          >
+                            Retour
+                          </button>
+                        </div>
+                        <div style={{ marginBottom: "24px" }}>
+                          <h4 style={{ marginBottom: "12px", fontSize: "18px", fontWeight: "600", color: "#333" }}>Performance par technicien</h4>
+                          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                            <thead>
+                              <tr style={{ background: "#f8f9fa" }}>
+                                <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #dee2e6" }}>Technicien</th>
+                                <th style={{ padding: "12px", textAlign: "right", borderBottom: "1px solid #dee2e6" }}>Tickets assignés</th>
+                                <th style={{ padding: "12px", textAlign: "right", borderBottom: "1px solid #dee2e6" }}>En cours</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {technicians.map((tech) => (
+                                <tr key={tech.id}>
+                                  <td style={{ padding: "12px" }}>{tech.full_name}</td>
+                                  <td style={{ padding: "12px", textAlign: "right" }}>{tech.assigned_tickets_count || 0}</td>
+                                  <td style={{ padding: "12px", textAlign: "right" }}>{tech.in_progress_tickets_count || 0}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <div style={{ display: "flex", gap: "12px", marginTop: "24px" }}>
+                          <button style={{ padding: "10px 20px", backgroundColor: "#007bff", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>Exporter PDF</button>
+                          <button style={{ padding: "10px 20px", backgroundColor: "#28a745", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>Exporter Excel</button>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </>
+              )}
+
+              {selectedReport === "utilisateurs" && (
+                <div style={{ background: "white", padding: "24px", borderRadius: "8px", boxShadow: "0 2px 4px rgba(0,0,0,0.1)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+                    <h3 style={{ fontSize: "22px", fontWeight: "600", color: "#333" }}>Rapports Utilisateurs</h3>
+                    <button 
+                      style={{ padding: "8px 16px", backgroundColor: "#6c757d", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}
+                      onClick={() => setSelectedReport("")}
+                    >
+                      Retour
+                    </button>
+                  </div>
+                  <div style={{ marginBottom: "24px" }}>
+                    <h4 style={{ marginBottom: "12px", fontSize: "18px", fontWeight: "600", color: "#333" }}>Statistiques utilisateurs</h4>
+                    <p style={{ color: "#666", marginBottom: "20px" }}>Rapport des utilisateurs et de leur activité</p>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "20px", marginBottom: "24px" }}>
+                      <div style={{ padding: "16px", background: "#f8f9fa", borderRadius: "8px" }}>
+                        <div style={{ fontSize: "32px", fontWeight: "bold", color: "#007bff", marginBottom: "8px" }}>
+                          {Array.from(new Set(allTickets.map((t) => t.creator_id))).length}
+                        </div>
+                        <div style={{ color: "#666" }}>Utilisateurs actifs</div>
+                      </div>
+                      <div style={{ padding: "16px", background: "#f8f9fa", borderRadius: "8px" }}>
+                        <div style={{ fontSize: "32px", fontWeight: "bold", color: "#28a745", marginBottom: "8px" }}>
+                          {allTickets.length}
+                        </div>
+                        <div style={{ color: "#666" }}>Tickets créés</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: "12px", marginTop: "24px" }}>
+                    <button style={{ padding: "10px 20px", backgroundColor: "#007bff", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>Exporter PDF</button>
+                    <button style={{ padding: "10px 20px", backgroundColor: "#28a745", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>Exporter Excel</button>
+                  </div>
+                </div>
+              )}
+
+              {selectedReport === "audit" && (
+                <div style={{ background: "white", padding: "24px", borderRadius: "8px", boxShadow: "0 2px 4px rgba(0,0,0,0.1)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+                    <h3 style={{ fontSize: "22px", fontWeight: "600", color: "#333" }}>Audit et Logs</h3>
+                    <button 
+                      style={{ padding: "8px 16px", backgroundColor: "#6c757d", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}
+                      onClick={() => setSelectedReport("")}
+                    >
+                      Retour
+                    </button>
+                  </div>
+                  <div style={{ marginBottom: "24px" }}>
+                    <h4 style={{ marginBottom: "12px", fontSize: "18px", fontWeight: "600", color: "#333" }}>Journal d'audit</h4>
+                    <p style={{ color: "#666", marginBottom: "20px" }}>Historique des actions et modifications dans le système</p>
+                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                      <thead>
+                        <tr style={{ background: "#f8f9fa" }}>
+                          <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #dee2e6" }}>Date</th>
+                          <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #dee2e6" }}>Action</th>
+                          <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #dee2e6" }}>Utilisateur</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td style={{ padding: "12px", color: "#666" }}>Aucun log disponible</td>
+                          <td style={{ padding: "12px", color: "#666" }}>-</td>
+                          <td style={{ padding: "12px", color: "#666" }}>-</td>
+                        </tr>
                       </tbody>
                     </table>
                   </div>

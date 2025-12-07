@@ -22,6 +22,8 @@ interface Ticket {
   technician?: {
     full_name: string;
   };
+  created_at?: string;
+  feedback_score?: number | null;
 }
 
 interface Technician {
@@ -77,6 +79,18 @@ function DSIDashboard({ token }: DSIDashboardProps) {
   const [showAddUserModal, setShowAddUserModal] = useState<boolean>(false);
   const [showEditUserModal, setShowEditUserModal] = useState<boolean>(false);
   const [editingUser, setEditingUser] = useState<any>(null);
+  const [showGenerateReport, setShowGenerateReport] = useState<boolean>(false);
+  const [reportType, setReportType] = useState<string>("");
+  const [reportPeriodFrom, setReportPeriodFrom] = useState<string>("2024-01-01");
+  const [reportPeriodTo, setReportPeriodTo] = useState<string>("2024-01-31");
+  const [reportFilters, setReportFilters] = useState({
+    department: "all",
+    technician: "all",
+    ticketType: "all",
+    priority: "all"
+  });
+  const [showOutputFormat, setShowOutputFormat] = useState<boolean>(false);
+  const [outputFormat, setOutputFormat] = useState<string>("");
   
   // États pour les paramètres d'apparence
   const [appName, setAppName] = useState<string>(() => {
@@ -640,20 +654,45 @@ function DSIDashboard({ token }: DSIDashboardProps) {
           }
         }
 
-        // Charger les métriques (si l'endpoint existe)
+        // Calculer les métriques à partir des tickets existants (après chargement)
+        // Les métriques de base sont déjà calculées lors du chargement des tickets
+        // Ici on complète avec les métriques avancées
         try {
-          const metricsRes = await fetch("http://localhost:8000/reports/metrics", {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
-          if (metricsRes.ok) {
-            const metricsData = await metricsRes.json();
-            setMetrics(metricsData);
+          if (allTickets.length > 0) {
+            // Calculer le temps moyen de résolution
+            const resolvedTickets = allTickets.filter(t => t.status === "resolu" || t.status === "cloture");
+            let totalResolutionTime = 0;
+            let resolvedCount = 0;
+            
+            resolvedTickets.forEach(ticket => {
+              // Si le ticket a une date de création, calculer la différence
+              if (ticket.created_at) {
+                const created = new Date(ticket.created_at);
+                const now = new Date();
+                const diffDays = Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
+                totalResolutionTime += diffDays;
+                resolvedCount++;
+              }
+            });
+            
+            const avgResolutionDays = resolvedCount > 0 ? Math.round(totalResolutionTime / resolvedCount) : 0;
+            
+            // Calculer la satisfaction moyenne (si disponible)
+            const ticketsWithFeedback = allTickets.filter(t => t.feedback_score !== null && t.feedback_score !== undefined);
+            const totalFeedback = ticketsWithFeedback.reduce((sum, t) => sum + (t.feedback_score || 0), 0);
+            const avgSatisfaction = ticketsWithFeedback.length > 0 
+              ? (totalFeedback / ticketsWithFeedback.length).toFixed(1) 
+              : "0";
+            
+            // Mettre à jour les métriques (en conservant openTickets déjà calculé)
+            setMetrics(prev => ({
+              ...prev,
+              avgResolutionTime: `${avgResolutionDays} jours`,
+              userSatisfaction: `${avgSatisfaction}/5`,
+            }));
           }
         } catch (err) {
-          // Endpoint peut ne pas exister encore
-          console.log("Endpoint métriques non disponible");
+          console.log("Erreur calcul métriques:", err);
         }
 
          // Charger les notifications
@@ -2022,7 +2061,7 @@ function DSIDashboard({ token }: DSIDashboardProps) {
             <>
               <h2 style={{ marginBottom: "24px", fontSize: "28px", fontWeight: "600", color: "#333" }}>Rapports et Métriques</h2>
               
-              {!selectedReport && (
+              {!selectedReport && !showGenerateReport && (
                 <div style={{ background: "white", padding: "24px", borderRadius: "8px", boxShadow: "0 2px 4px rgba(0,0,0,0.1)" }}>
                   <p style={{ color: "#666", fontSize: "16px", marginBottom: "20px" }}>Sélectionnez un type de rapport dans le menu latéral</p>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "16px" }}>
@@ -2287,6 +2326,385 @@ function DSIDashboard({ token }: DSIDashboardProps) {
                   <div style={{ display: "flex", gap: "12px", marginTop: "24px" }}>
                     <button style={{ padding: "10px 20px", backgroundColor: "#007bff", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>Exporter PDF</button>
                     <button style={{ padding: "10px 20px", backgroundColor: "#28a745", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>Exporter Excel</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Formulaire de génération de rapport */}
+              {showGenerateReport && !showOutputFormat && (
+                <div style={{ background: "white", padding: "32px", borderRadius: "8px", boxShadow: "0 2px 4px rgba(0,0,0,0.1)", marginTop: "24px", zIndex: 10, position: "relative" }}>
+                  <div style={{ marginBottom: "32px" }}>
+                    <h3 style={{ fontSize: "20px", fontWeight: "600", color: "#1e3a5f", marginBottom: "20px", fontFamily: "monospace" }}>Type de Rapport *</h3>
+                    <div style={{ 
+                      border: "1px solid #007bff", 
+                      borderLeft: "3px solid #007bff",
+                      borderTop: "1px solid #007bff",
+                      borderRadius: "0 4px 4px 0",
+                      padding: "16px",
+                      position: "relative",
+                      backgroundColor: "#f8f9fa"
+                    }}>
+                      <select
+                        value={reportType}
+                        onChange={(e) => setReportType(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "10px",
+                          border: "1px solid #ddd",
+                          borderRadius: "4px",
+                          fontSize: "16px",
+                          color: "#333",
+                          backgroundColor: "white"
+                        }}
+                      >
+                        <option value="">[Sélectionner un type ▼]</option>
+                        <option value="performance">Performance Globale</option>
+                        <option value="tickets_department">Tickets par Département</option>
+                        <option value="technicians">Performance des Techniciens</option>
+                        <option value="satisfaction">Satisfaction Utilisateurs</option>
+                        <option value="recurrent">Problèmes Récurrents</option>
+                        <option value="audit">Audit et Logs</option>
+                      </select>
+                      <div style={{ marginTop: "16px", paddingLeft: "8px" }}>
+                        <div style={{ display: "flex", alignItems: "center", marginBottom: "8px" }}>
+                          <div style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#1e3a5f", marginRight: "12px" }}></div>
+                          <span style={{ color: "#1e3a5f", fontSize: "16px", fontFamily: "monospace" }}>Performance Globale</span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", marginBottom: "8px" }}>
+                          <div style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#1e3a5f", marginRight: "12px" }}></div>
+                          <span style={{ color: "#1e3a5f", fontSize: "16px", fontFamily: "monospace" }}>Tickets par Département</span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", marginBottom: "8px" }}>
+                          <div style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#1e3a5f", marginRight: "12px" }}></div>
+                          <span style={{ color: "#1e3a5f", fontSize: "16px", fontFamily: "monospace" }}>Performance des Techniciens</span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", marginBottom: "8px" }}>
+                          <div style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#1e3a5f", marginRight: "12px" }}></div>
+                          <span style={{ color: "#1e3a5f", fontSize: "16px", fontFamily: "monospace" }}>Satisfaction Utilisateurs</span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", marginBottom: "8px" }}>
+                          <div style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#1e3a5f", marginRight: "12px" }}></div>
+                          <span style={{ color: "#1e3a5f", fontSize: "16px", fontFamily: "monospace" }}>Problèmes Récurrents</span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center" }}>
+                          <div style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#1e3a5f", marginRight: "12px" }}></div>
+                          <span style={{ color: "#1e3a5f", fontSize: "16px", fontFamily: "monospace" }}>Audit et Logs</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: "32px" }}>
+                    <h3 style={{ fontSize: "20px", fontWeight: "600", color: "#1e3a5f", marginBottom: "20px", fontFamily: "monospace" }}>Période *</h3>
+                    <div style={{ 
+                      border: "1px solid #007bff", 
+                      borderLeft: "3px solid #007bff",
+                      borderTop: "1px solid #007bff",
+                      borderRadius: "0 4px 4px 0",
+                      padding: "16px",
+                      backgroundColor: "#f8f9fa"
+                    }}>
+                      <div style={{ display: "flex", gap: "24px", alignItems: "center" }}>
+                        <div style={{ flex: 1 }}>
+                          <label style={{ display: "block", marginBottom: "8px", color: "#1e3a5f", fontSize: "16px" }}>Du :</label>
+                          <input
+                            type="date"
+                            value={reportPeriodFrom}
+                            onChange={(e) => setReportPeriodFrom(e.target.value)}
+                            style={{
+                              width: "100%",
+                              padding: "10px",
+                              border: "1px solid #ddd",
+                              borderRadius: "4px",
+                              fontSize: "16px",
+                              color: "#333"
+                            }}
+                          />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <label style={{ display: "block", marginBottom: "8px", color: "#1e3a5f", fontSize: "16px" }}>Au :</label>
+                          <input
+                            type="date"
+                            value={reportPeriodTo}
+                            onChange={(e) => setReportPeriodTo(e.target.value)}
+                            style={{
+                              width: "100%",
+                              padding: "10px",
+                              border: "1px solid #ddd",
+                              borderRadius: "4px",
+                              fontSize: "16px",
+                              color: "#333"
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: "32px" }}>
+                    <h3 style={{ fontSize: "20px", fontWeight: "600", color: "#1e3a5f", marginBottom: "20px", fontFamily: "monospace" }}>Filtres (Optionnel)</h3>
+                    <div style={{ 
+                      border: "1px solid #007bff", 
+                      borderLeft: "3px solid #007bff",
+                      borderTop: "1px solid #007bff",
+                      borderRadius: "0 4px 4px 0",
+                      padding: "16px",
+                      backgroundColor: "#f8f9fa"
+                    }}>
+                      <div style={{ marginBottom: "16px" }}>
+                        <div style={{ display: "flex", alignItems: "center", marginBottom: "8px" }}>
+                          <div style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#1e3a5f", marginRight: "12px" }}></div>
+                          <label style={{ color: "#1e3a5f", fontSize: "16px", fontFamily: "monospace" }}>Département :</label>
+                        </div>
+                        <select
+                          value={reportFilters.department}
+                          onChange={(e) => setReportFilters({...reportFilters, department: e.target.value})}
+                          style={{
+                            width: "100%",
+                            padding: "10px",
+                            border: "1px solid #ddd",
+                            borderRadius: "4px",
+                            fontSize: "16px",
+                            color: "#333",
+                            backgroundColor: "white"
+                          }}
+                        >
+                          <option value="all">Tous</option>
+                        </select>
+                      </div>
+                      <div style={{ marginBottom: "16px" }}>
+                        <div style={{ display: "flex", alignItems: "center", marginBottom: "8px" }}>
+                          <div style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#1e3a5f", marginRight: "12px" }}></div>
+                          <label style={{ color: "#1e3a5f", fontSize: "16px", fontFamily: "monospace" }}>Technicien :</label>
+                        </div>
+                        <select
+                          value={reportFilters.technician}
+                          onChange={(e) => setReportFilters({...reportFilters, technician: e.target.value})}
+                          style={{
+                            width: "100%",
+                            padding: "10px",
+                            border: "1px solid #ddd",
+                            borderRadius: "4px",
+                            fontSize: "16px",
+                            color: "#333",
+                            backgroundColor: "white"
+                          }}
+                        >
+                          <option value="all">Tous</option>
+                          {technicians.map((tech) => (
+                            <option key={tech.id} value={tech.id}>{tech.full_name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div style={{ marginBottom: "16px" }}>
+                        <div style={{ display: "flex", alignItems: "center", marginBottom: "8px" }}>
+                          <div style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#1e3a5f", marginRight: "12px" }}></div>
+                          <label style={{ color: "#1e3a5f", fontSize: "16px", fontFamily: "monospace" }}>Type de Ticket :</label>
+                        </div>
+                        <select
+                          value={reportFilters.ticketType}
+                          onChange={(e) => setReportFilters({...reportFilters, ticketType: e.target.value})}
+                          style={{
+                            width: "100%",
+                            padding: "10px",
+                            border: "1px solid #ddd",
+                            borderRadius: "4px",
+                            fontSize: "16px",
+                            color: "#333",
+                            backgroundColor: "white"
+                          }}
+                        >
+                          <option value="all">Tous</option>
+                        </select>
+                      </div>
+                      <div>
+                        <div style={{ display: "flex", alignItems: "center", marginBottom: "8px" }}>
+                          <div style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#1e3a5f", marginRight: "12px" }}></div>
+                          <label style={{ color: "#1e3a5f", fontSize: "16px", fontFamily: "monospace" }}>Priorité :</label>
+                        </div>
+                        <select
+                          value={reportFilters.priority}
+                          onChange={(e) => setReportFilters({...reportFilters, priority: e.target.value})}
+                          style={{
+                            width: "100%",
+                            padding: "10px",
+                            border: "1px solid #ddd",
+                            borderRadius: "4px",
+                            fontSize: "16px",
+                            color: "#333",
+                            backgroundColor: "white"
+                          }}
+                        >
+                          <option value="all">Tous</option>
+                          <option value="critique">Critique</option>
+                          <option value="haute">Haute</option>
+                          <option value="moyenne">Moyenne</option>
+                          <option value="faible">Faible</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: "16px", justifyContent: "flex-end", marginTop: "32px" }}>
+                    <button
+                      onClick={() => {
+                        setShowGenerateReport(false);
+                        setReportType("");
+                        setReportPeriodFrom("2024-01-01");
+                        setReportPeriodTo("2024-01-31");
+                        setReportFilters({ department: "all", technician: "all", ticketType: "all", priority: "all" });
+                      }}
+                      style={{
+                        padding: "10px 24px",
+                        backgroundColor: "transparent",
+                        color: "#1e3a5f",
+                        border: "1px solid #1e3a5f",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontSize: "16px",
+                        fontWeight: "500"
+                      }}
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (reportType && reportPeriodFrom && reportPeriodTo) {
+                          setShowOutputFormat(true);
+                        }
+                      }}
+                      disabled={!reportType || !reportPeriodFrom || !reportPeriodTo}
+                      style={{
+                        padding: "10px 24px",
+                        backgroundColor: reportType && reportPeriodFrom && reportPeriodTo ? "#1e3a5f" : "#ccc",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: reportType && reportPeriodFrom && reportPeriodTo ? "pointer" : "not-allowed",
+                        fontSize: "16px",
+                        fontWeight: "500"
+                      }}
+                    >
+                      Suivant
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Format de Sortie */}
+              {showGenerateReport && showOutputFormat && (
+                <div style={{ background: "white", padding: "32px", borderRadius: "8px", boxShadow: "0 2px 4px rgba(0,0,0,0.1)", marginTop: "24px" }}>
+                  <h3 style={{ fontSize: "20px", fontWeight: "600", color: "#1e3a5f", marginBottom: "24px", fontFamily: "monospace" }}>Format de Sortie</h3>
+                  <div style={{ 
+                    border: "2px dashed #1e3a5f",
+                    borderRadius: "4px",
+                    padding: "24px"
+                  }}>
+                    <div style={{ marginBottom: "16px" }}>
+                      <div style={{ display: "flex", alignItems: "center", marginBottom: "12px" }}>
+                        <div style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#1e3a5f", marginRight: "12px" }}></div>
+                        <label style={{ color: "#1e3a5f", fontSize: "16px", cursor: "pointer", flex: 1, fontFamily: "monospace" }}>
+                          <input
+                            type="radio"
+                            name="outputFormat"
+                            value="pdf"
+                            checked={outputFormat === "pdf"}
+                            onChange={(e) => setOutputFormat(e.target.value)}
+                            style={{ marginRight: "8px" }}
+                          />
+                          PDF
+                        </label>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", marginBottom: "12px" }}>
+                        <div style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#1e3a5f", marginRight: "12px" }}></div>
+                        <label style={{ color: "#1e3a5f", fontSize: "16px", cursor: "pointer", flex: 1, fontFamily: "monospace" }}>
+                          <input
+                            type="radio"
+                            name="outputFormat"
+                            value="excel"
+                            checked={outputFormat === "excel"}
+                            onChange={(e) => setOutputFormat(e.target.value)}
+                            style={{ marginRight: "8px" }}
+                          />
+                          Excel
+                        </label>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", marginBottom: "12px" }}>
+                        <div style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#1e3a5f", marginRight: "12px" }}></div>
+                        <label style={{ color: "#1e3a5f", fontSize: "16px", cursor: "pointer", flex: 1, fontFamily: "monospace" }}>
+                          <input
+                            type="radio"
+                            name="outputFormat"
+                            value="csv"
+                            checked={outputFormat === "csv"}
+                            onChange={(e) => setOutputFormat(e.target.value)}
+                            style={{ marginRight: "8px" }}
+                          />
+                          CSV
+                        </label>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center" }}>
+                        <div style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#1e3a5f", marginRight: "12px" }}></div>
+                        <label style={{ color: "#1e3a5f", fontSize: "16px", cursor: "pointer", flex: 1, fontFamily: "monospace" }}>
+                          <input
+                            type="radio"
+                            name="outputFormat"
+                            value="screen"
+                            checked={outputFormat === "screen"}
+                            onChange={(e) => setOutputFormat(e.target.value)}
+                            style={{ marginRight: "8px" }}
+                          />
+                          Afficher à l'écran
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: "16px", justifyContent: "flex-end", marginTop: "32px" }}>
+                    <button
+                      onClick={() => setShowOutputFormat(false)}
+                      style={{
+                        padding: "10px 24px",
+                        backgroundColor: "transparent",
+                        color: "#1e3a5f",
+                        border: "1px solid #1e3a5f",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontSize: "16px",
+                        fontWeight: "500",
+                        fontFamily: "monospace"
+                      }}
+                    >
+                      [Annuler]
+                    </button>
+                    <button
+                      onClick={() => {
+                        // Générer le rapport
+                        console.log("Génération du rapport:", { reportType, reportPeriodFrom, reportPeriodTo, reportFilters, outputFormat });
+                        // Réinitialiser le formulaire
+                        setShowGenerateReport(false);
+                        setShowOutputFormat(false);
+                        setReportType("");
+                        setReportPeriodFrom("2024-01-01");
+                        setReportPeriodTo("2024-01-31");
+                        setReportFilters({ department: "all", technician: "all", ticketType: "all", priority: "all" });
+                        setOutputFormat("");
+                      }}
+                      disabled={!outputFormat}
+                      style={{
+                        padding: "10px 24px",
+                        backgroundColor: outputFormat ? "#1e3a5f" : "#ccc",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: outputFormat ? "pointer" : "not-allowed",
+                        fontSize: "16px",
+                        fontWeight: "500",
+                        fontFamily: "monospace"
+                      }}
+                    >
+                      [Générer Rapport]
+                    </button>
                   </div>
                 </div>
               )}
@@ -4072,8 +4490,12 @@ function DSIDashboard({ token }: DSIDashboardProps) {
                {/* Bouton Générer un nouveau rapport */}
                <div style={{ marginBottom: "24px" }}>
                  <button
-                   onClick={() => {
-                     alert("Génération d'un nouveau rapport (à implémenter)");
+                   type="button"
+                   onClick={(e) => {
+                     e.preventDefault();
+                     e.stopPropagation();
+                     setShowGenerateReport(true);
+                     setSelectedReport("");
                    }}
                    style={{
                      padding: "10px 20px",
@@ -4092,8 +4514,8 @@ function DSIDashboard({ token }: DSIDashboardProps) {
              </div>
            )}
 
-         </div>
-       </div>
+        </div>
+      </div>
 
        {/* Modal Ajouter un utilisateur */}
        {showAddUserModal && (
