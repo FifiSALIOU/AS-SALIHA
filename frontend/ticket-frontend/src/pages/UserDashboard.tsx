@@ -764,7 +764,6 @@ function UserDashboard({ token: tokenProp }: UserDashboardProps) {
                 <th style={{ padding: "16px", textAlign: "left", fontSize: "12px", fontWeight: "600", color: "#666", textTransform: "uppercase" }}>Titre</th>
                 <th style={{ padding: "16px", textAlign: "left", fontSize: "12px", fontWeight: "600", color: "#666", textTransform: "uppercase" }}>Statut</th>
                 <th style={{ padding: "16px", textAlign: "left", fontSize: "12px", fontWeight: "600", color: "#666", textTransform: "uppercase" }}>Priorité</th>
-                <th style={{ padding: "16px", textAlign: "left", fontSize: "12px", fontWeight: "600", color: "#666", textTransform: "uppercase" }}>Technicien Assigné</th>
                 <th style={{ padding: "16px", textAlign: "left", fontSize: "12px", fontWeight: "600", color: "#666", textTransform: "uppercase" }}>Date</th>
                 <th style={{ padding: "16px", textAlign: "left", fontSize: "12px", fontWeight: "600", color: "#666", textTransform: "uppercase" }}>Actions</th>
               </tr>
@@ -772,7 +771,7 @@ function UserDashboard({ token: tokenProp }: UserDashboardProps) {
             <tbody>
               {tickets.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: "center", padding: "40px", color: "#999" }}>
+                  <td colSpan={6} style={{ textAlign: "center", padding: "40px", color: "#999" }}>
                     Aucun ticket créé
                   </td>
                 </tr>
@@ -809,31 +808,6 @@ function UserDashboard({ token: tokenProp }: UserDashboardProps) {
                       }}>
                         {t.priority}
                       </span>
-                    </td>
-                    <td style={{ padding: "16px" }}>
-                      {t.technician ? (
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                          <div style={{
-                            width: "32px",
-                            height: "32px",
-                            borderRadius: "50%",
-                            background: t.technician.profile_photo_url ? `url(${t.technician.profile_photo_url})` : "#007bff",
-                            backgroundSize: "cover",
-                            backgroundPosition: "center",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            color: "white",
-                            fontSize: "12px",
-                            fontWeight: "600"
-                          }}>
-                            {!t.technician.profile_photo_url && t.technician.full_name.charAt(0).toUpperCase()}
-                          </div>
-                          <span style={{ fontSize: "14px", color: "#333" }}>{t.technician.full_name}</span>
-                        </div>
-                      ) : (
-                        <span style={{ color: "#999", fontSize: "14px" }}>Non assigné</span>
-                      )}
                     </td>
                     <td style={{ padding: "16px", fontSize: "14px", color: "#666" }}>
                       {formatDate(t.assigned_at || t.created_at)}

@@ -51,6 +51,7 @@ function TechnicianDashboard({ token }: TechnicianDashboardProps) {
   const [showNotifications, setShowNotifications] = useState<boolean>(false);
   const [userInfo, setUserInfo] = useState<UserRead | null>(null);
   const [ticketDetails, setTicketDetails] = useState<Ticket | null>(null);
+  const [activeSection, setActiveSection] = useState<string>("dashboard");
 
   async function loadNotifications() {
     if (!token || token.trim() === "") {
@@ -430,7 +431,8 @@ function TechnicianDashboard({ token }: TechnicianDashboardProps) {
   // Filtrer les tickets selon leur statut
   const assignedTickets = allTickets.filter((t) => t.status === "assigne_technicien");
   const inProgressTickets = allTickets.filter((t) => t.status === "en_cours");
-  const resolvedTickets = allTickets.filter((t) => t.status === "resolu");
+  // Tickets résolus : inclure les tickets avec statut "resolu" ou "cloture" qui ont été assignés au technicien
+  const resolvedTickets = allTickets.filter((t) => t.status === "resolu" || t.status === "cloture");
 
   const assignedCount = assignedTickets.length;
   const inProgressCount = inProgressTickets.length;
@@ -461,14 +463,16 @@ function TechnicianDashboard({ token }: TechnicianDashboardProps) {
           </div>
         </div>
         <div 
+          onClick={() => setActiveSection("dashboard")}
           style={{ 
             display: "flex", 
             alignItems: "center", 
             gap: "12px", 
             padding: "12px", 
-            background: "rgba(255,255,255,0.1)", 
+            background: activeSection === "dashboard" ? "rgba(255,255,255,0.1)" : "transparent", 
             borderRadius: "8px",
-            cursor: "pointer"
+            cursor: "pointer",
+            transition: "background 0.2s"
           }}
         >
           <div style={{ width: "24px", height: "24px", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -479,6 +483,26 @@ function TechnicianDashboard({ token }: TechnicianDashboardProps) {
             </svg>
           </div>
           <div>Tableau de Bord</div>
+        </div>
+        <div 
+          onClick={() => setActiveSection("tickets-resolus")}
+          style={{ 
+            display: "flex", 
+            alignItems: "center", 
+            gap: "12px", 
+            padding: "12px", 
+            background: activeSection === "tickets-resolus" ? "rgba(255,255,255,0.1)" : "transparent", 
+            borderRadius: "8px",
+            cursor: "pointer",
+            transition: "background 0.2s"
+          }}
+        >
+          <div style={{ width: "24px", height: "24px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </div>
+          <div>Tickets Résolus</div>
         </div>
       </div>
 
@@ -638,6 +662,8 @@ function TechnicianDashboard({ token }: TechnicianDashboardProps) {
         {/* Contenu principal avec scroll */}
         <div style={{ flex: 1, padding: "30px", overflow: "auto" }}>
           <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+            {activeSection === "dashboard" && (
+              <>
             <h2>Tableau de bord - Technicien</h2>
 
       <div style={{ display: "flex", gap: "16px", margin: "24px 0" }}>
@@ -804,6 +830,108 @@ function TechnicianDashboard({ token }: TechnicianDashboardProps) {
           )}
         </tbody>
       </table>
+              </>
+            )}
+
+            {activeSection === "tickets-resolus" && (
+              <div>
+                <h2 style={{ marginBottom: "24px" }}>Tickets Résolus</h2>
+                <div style={{ 
+                  background: "white", 
+                  borderRadius: "8px", 
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                  overflow: "hidden"
+                }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr style={{ background: "#f8f9fa", borderBottom: "2px solid #dee2e6" }}>
+                        <th style={{ padding: "12px 16px", textAlign: "left", fontWeight: "600", color: "#333" }}>ID</th>
+                        <th style={{ padding: "12px 16px", textAlign: "left", fontWeight: "600", color: "#333" }}>Titre</th>
+                        <th style={{ padding: "12px 16px", textAlign: "left", fontWeight: "600", color: "#333" }}>Statut</th>
+                        <th style={{ padding: "12px 16px", textAlign: "left", fontWeight: "600", color: "#333" }}>Priorité</th>
+                        <th style={{ padding: "12px 16px", textAlign: "left", fontWeight: "600", color: "#333" }}>Type</th>
+                        <th style={{ padding: "12px 16px", textAlign: "left", fontWeight: "600", color: "#333" }}>Assigné le</th>
+                        <th style={{ padding: "12px 16px", textAlign: "left", fontWeight: "600", color: "#333" }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {resolvedTickets.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} style={{ textAlign: "center", padding: "40px", color: "#999" }}>
+                            Aucun ticket résolu
+                          </td>
+                        </tr>
+                      ) : (
+                        resolvedTickets.map((t) => (
+                          <tr key={t.id} style={{ borderBottom: "1px solid #dee2e6" }}>
+                            <td style={{ padding: "12px 16px" }}>#{t.number}</td>
+                            <td style={{ padding: "12px 16px" }}>{t.title}</td>
+                            <td style={{ padding: "12px 16px" }}>
+                              <span style={{
+                                padding: "4px 8px",
+                                borderRadius: "4px",
+                                fontSize: "12px",
+                                fontWeight: "500",
+                                background: t.status === "resolu" ? "#28a745" : "#6c757d",
+                                color: "white"
+                              }}>
+                                {t.status === "resolu" ? "Résolu" : t.status === "cloture" ? "Clôturé" : t.status}
+                              </span>
+                            </td>
+                            <td style={{ padding: "12px 16px" }}>
+                              <span style={{
+                                padding: "4px 8px",
+                                borderRadius: "4px",
+                                fontSize: "12px",
+                                fontWeight: "500",
+                                background: t.priority === "critique" ? "#f44336" : t.priority === "haute" ? "#ff9800" : t.priority === "moyenne" ? "#ffc107" : "#9e9e9e",
+                                color: "white"
+                              }}>
+                                {t.priority}
+                              </span>
+                            </td>
+                            <td style={{ padding: "12px 16px" }}>
+                              <span style={{
+                                padding: "4px 8px",
+                                borderRadius: "4px",
+                                fontSize: "12px",
+                                background: "#e3f2fd",
+                                color: "#1976d2"
+                              }}>
+                                {t.type === "materiel" ? "Matériel" : "Applicatif"}
+                              </span>
+                            </td>
+                            <td style={{ padding: "12px 16px", color: "#666" }}>
+                              {t.assigned_at ? new Date(t.assigned_at).toLocaleString("fr-FR") : "N/A"}
+                            </td>
+                            <td style={{ padding: "12px 16px" }}>
+                              <button
+                                onClick={() => loadTicketDetails(t.id)}
+                                disabled={loading}
+                                style={{ 
+                                  fontSize: "12px", 
+                                  padding: "6px 12px", 
+                                  backgroundColor: "#6c757d", 
+                                  color: "white", 
+                                  border: "none", 
+                                  borderRadius: "4px", 
+                                  cursor: "pointer" 
+                                }}
+                              >
+                                Voir détails
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
       {selectedTicket && (
         <div style={{
@@ -1084,10 +1212,6 @@ function TechnicianDashboard({ token }: TechnicianDashboardProps) {
           </div>
         </div>
       )}
-
-          </div>
-        </div>
-      </div>
 
       {/* Modal de notifications */}
       {showNotifications && (
