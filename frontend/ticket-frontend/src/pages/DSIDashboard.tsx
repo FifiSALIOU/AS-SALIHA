@@ -1237,47 +1237,43 @@ function DSIDashboard({ token }: DSIDashboardProps) {
                 // Comparer les IDs en tant que strings pour éviter les problèmes de type
                 const dsiIdStr = String(currentUserInfo.id);
                 
+                // Chercher une entrée d'historique où le DSI connecté a délégué le ticket
+                // Critères : user_id correspond au DSI connecté ET (raison contient mots-clés de délégation OU changement vers "en_attente_analyse")
                 const delegationEntry = history.find((h: TicketHistory) => {
-                  // Vérifier que c'est bien le DSI connecté qui a fait l'action
                   const userIdMatches = String(h.user_id) === dsiIdStr;
                   if (!userIdMatches) return false;
                   
                   // Vérifier si le reason contient des mots-clés de délégation
                   const reasonLower = (h.reason || "").toLowerCase();
-                  if (reasonLower.includes("délégu") || 
-                      reasonLower.includes("delegat") ||
-                      reasonLower.includes("adjoint") ||
-                      reasonLower.includes("délégation")) {
-                    return true;
-                  }
+                  const hasDelegationKeywords = reasonLower.includes("délégu") || 
+                                                 reasonLower.includes("delegat") ||
+                                                 reasonLower.includes("adjoint") ||
+                                                 reasonLower.includes("délégation");
                   
-                  return false;
+                  // Vérifier si le statut a été changé vers "en_attente_analyse" (car lors de la délégation, le statut est mis à "en_attente_analyse")
+                  const statusChangedToPending = h.new_status === "en_attente_analyse";
+                  
+                  // Si l'ancien statut n'était pas "en_attente_analyse", c'est plus probablement une délégation
+                  const wasNotAlreadyPending = h.old_status !== "en_attente_analyse";
+                  
+                  // Un ticket est délégué si :
+                  // 1. La raison contient des mots-clés de délégation, OU
+                  // 2. Le DSI a mis le ticket en "en_attente_analyse" (et il n'était pas déjà en attente)
+                  return hasDelegationKeywords || (statusChangedToPending && wasNotAlreadyPending);
                 });
                 
                 if (delegationEntry) {
                   ticketsDelegatedByMe.add(ticket.id);
                 } else {
-                  // Si on ne trouve pas d'entrée d'historique avec les mots-clés de délégation,
-                  // on vérifie s'il y a une entrée d'historique récente où le DSI connecté a modifié le ticket
-                  // et où le statut est "en_attente_analyse" (car lors de la délégation, le statut est mis à "en_attente_analyse")
-                  const entryByDSI = history.find((h: TicketHistory) => 
+                  // Fallback : si le ticket a un secretary_id et le DSI connecté a une entrée dans l'historique
+                  // qui met le ticket en "en_attente_analyse", considérer comme délégation
+                  const hasDSIEntryWithPendingStatus = history.some((h: TicketHistory) => 
                     String(h.user_id) === dsiIdStr && 
                     h.new_status === "en_attente_analyse"
                   );
                   
-                  if (entryByDSI) {
-                    // Si le DSI connecté a mis le ticket en "en_attente_analyse" et que le ticket a un secretary_id,
-                    // c'est probablement une délégation (selon le code backend ligne 1083-1084)
+                  if (hasDSIEntryWithPendingStatus) {
                     ticketsDelegatedByMe.add(ticket.id);
-                  } else {
-                    // Log pour déboguer : pourquoi ce ticket n'est-il pas considéré comme délégué ?
-                    console.log(`Ticket ${ticket.id} non ajouté:`, {
-                      ticketSecretaryId: ticket.secretary_id,
-                      dsiId: currentUserInfo.id,
-                      historyEntries: history.length,
-                      entriesByDSI: history.filter(h => String(h.user_id) === dsiIdStr).length,
-                      reasons: history.filter(h => String(h.user_id) === dsiIdStr).map(h => h.reason)
-                    });
                   }
                 }
               } else {
@@ -1604,31 +1600,42 @@ function DSIDashboard({ token }: DSIDashboardProps) {
             if (historyRes.ok) {
               const history: TicketHistory[] = await historyRes.json();
               
+              // Chercher une entrée d'historique où le DSI connecté a délégué le ticket
+              // Critères : user_id correspond au DSI connecté ET (raison contient mots-clés de délégation OU changement vers "en_attente_analyse")
               const delegationEntry = history.find((h: TicketHistory) => {
                 const userIdMatches = String(h.user_id) === dsiIdStr;
                 if (!userIdMatches) return false;
                 
+                // Vérifier si le reason contient des mots-clés de délégation
                 const reasonLower = (h.reason || "").toLowerCase();
-                if (reasonLower.includes("délégu") || 
-                    reasonLower.includes("delegat") ||
-                    reasonLower.includes("adjoint") ||
-                    reasonLower.includes("délégation")) {
-                  return true;
-                }
+                const hasDelegationKeywords = reasonLower.includes("délégu") || 
+                                               reasonLower.includes("delegat") ||
+                                               reasonLower.includes("adjoint") ||
+                                               reasonLower.includes("délégation");
                 
-                return false;
+                // Vérifier si le statut a été changé vers "en_attente_analyse" (car lors de la délégation, le statut est mis à "en_attente_analyse")
+                const statusChangedToPending = h.new_status === "en_attente_analyse";
+                
+                // Si l'ancien statut n'était pas "en_attente_analyse", c'est plus probablement une délégation
+                const wasNotAlreadyPending = h.old_status !== "en_attente_analyse";
+                
+                // Un ticket est délégué si :
+                // 1. La raison contient des mots-clés de délégation, OU
+                // 2. Le DSI a mis le ticket en "en_attente_analyse" (et il n'était pas déjà en attente)
+                return hasDelegationKeywords || (statusChangedToPending && wasNotAlreadyPending);
               });
               
               if (delegationEntry) {
                 ticketsDelegatedByMe.add(ticket.id);
               } else {
-                // Fallback: vérifier si le DSI a mis le ticket en "en_attente_analyse"
-                const entryByDSI = history.find((h: TicketHistory) => 
+                // Fallback : si le ticket a un secretary_id et le DSI connecté a une entrée dans l'historique
+                // qui met le ticket en "en_attente_analyse", considérer comme délégation
+                const hasDSIEntryWithPendingStatus = history.some((h: TicketHistory) => 
                   String(h.user_id) === dsiIdStr && 
                   h.new_status === "en_attente_analyse"
                 );
                 
-                if (entryByDSI) {
+                if (hasDSIEntryWithPendingStatus) {
                   ticketsDelegatedByMe.add(ticket.id);
                 }
               }
@@ -1872,7 +1879,6 @@ function DSIDashboard({ token }: DSIDashboardProps) {
     if (selectedReport === "metriques" && !reopeningCalculated && allTickets.length > 0) {
       const checkReopenedTickets = async () => {
         let reopenedCount = 0;
-        const resolvedTickets = allTickets.filter(t => t.status === "resolu" || t.status === "cloture");
         
         // Vérifier tous les tickets pour voir s'ils ont été réouverts
         await Promise.all(
@@ -2533,6 +2539,89 @@ function DSIDashboard({ token }: DSIDashboardProps) {
     }).sort((a, b) => b.tickets - a.tickets); // Trier par ordre décroissant
   };
 
+  // Fonctions pour préparer les données sur les rôles/utilisateurs
+  const prepareUsersByRoleData = () => {
+    const roleCounts: { [key: string]: number } = {};
+    allUsers.forEach((user: any) => {
+      const roleName = user.role?.name || "Sans rôle";
+      roleCounts[roleName] = (roleCounts[roleName] || 0) + 1;
+    });
+    return Object.entries(roleCounts).map(([role, count]) => ({
+      rôle: role,
+      nombre: count
+    })).sort((a, b) => b.nombre - a.nombre);
+  };
+
+  // Fonction pour préparer les données sur les techniciens par spécialisation
+  const prepareTechniciansBySpecializationData = () => {
+    const specializationCounts: { [key: string]: number } = {};
+    technicians.forEach((tech) => {
+      const spec = tech.specialization || "Non spécifié";
+      specializationCounts[spec] = (specializationCounts[spec] || 0) + 1;
+    });
+    return Object.entries(specializationCounts).map(([spec, count]) => ({
+      spécialisation: spec,
+      nombre: count
+    }));
+  };
+
+  // Fonction pour préparer les données sur la charge de travail par technicien
+  const prepareTechnicianWorkloadData = () => {
+    return technicians.map((tech) => {
+      const assignedTickets = allTickets.filter((t) => t.technician_id === tech.id);
+      const resolvedTickets = assignedTickets.filter((t) => t.status === "resolu" || t.status === "cloture");
+      return {
+        technicien: tech.full_name,
+        assignés: assignedTickets.length,
+        résolus: resolvedTickets.length
+      };
+    }).sort((a, b) => b.assignés - a.assignés).slice(0, 10); // Top 10
+  };
+
+  // Fonction pour préparer les données sur les utilisateurs les plus actifs (créateurs de tickets)
+  const prepareMostActiveUsersData = () => {
+    const userTicketCounts: { [key: string]: { name: string; count: number } } = {};
+    allTickets.forEach((ticket) => {
+      const userId = ticket.creator_id;
+      const userName = ticket.creator?.full_name || "Utilisateur inconnu";
+      if (userId) {
+        if (!userTicketCounts[userId]) {
+          userTicketCounts[userId] = { name: userName, count: 0 };
+        }
+        userTicketCounts[userId].count += 1;
+      }
+    });
+    return Object.values(userTicketCounts)
+      .map((user) => ({
+        utilisateur: user.name,
+        tickets: user.count
+      }))
+      .sort((a, b) => b.tickets - a.tickets)
+      .slice(0, 10); // Top 10
+  };
+
+  // Fonction pour préparer les données sur le temps moyen de résolution par type
+  const prepareResolutionTimeByTypeData = () => {
+    const typeData: { [key: string]: { total: number; count: number } } = {};
+    allTickets.forEach((ticket) => {
+      if (ticket.type && ticket.resolved_at && ticket.created_at) {
+        const created = new Date(ticket.created_at).getTime();
+        const resolved = new Date(ticket.resolved_at).getTime();
+        const hours = (resolved - created) / (1000 * 60 * 60);
+        
+        if (!typeData[ticket.type]) {
+          typeData[ticket.type] = { total: 0, count: 0 };
+        }
+        typeData[ticket.type].total += hours;
+        typeData[ticket.type].count += 1;
+      }
+    });
+    return Object.entries(typeData).map(([type, data]) => ({
+      type: type === "materiel" ? "Matériel" : "Applicatif",
+      tempsMoyen: data.count > 0 ? Math.round(data.total / data.count) : 0
+    }));
+  };
+
   // Fonctions pour analyser les problèmes récurrents
   const getMostFrequentProblems = () => {
     // Analyser les titres de tickets pour trouver des patterns récurrents significatifs
@@ -3164,7 +3253,7 @@ function DSIDashboard({ token }: DSIDashboardProps) {
         
         agencyData.forEach(agency => {
           agencyTableData.push([
-            agency.agence,
+            agency.agence || "N/A",
             agency.nombreTickets.toString(),
             agency.tempsMoyen,
             agency.satisfaction
@@ -3592,7 +3681,7 @@ function DSIDashboard({ token }: DSIDashboardProps) {
           const count = allTickets.filter((t) => t.priority === priority).length;
           priorityData.push([
             priority.charAt(0).toUpperCase() + priority.slice(1),
-            count,
+            count.toString(),
             allTickets.length > 0 ? ((count / allTickets.length) * 100).toFixed(1) + '%' : '0%'
           ]);
         });
@@ -3808,8 +3897,8 @@ function DSIDashboard({ token }: DSIDashboardProps) {
         
         agencyData.forEach(agency => {
           agencyTableData.push([
-            agency.agence,
-            agency.nombreTickets,
+            agency.agence || "N/A",
+            agency.nombreTickets.toString(),
             agency.tempsMoyen,
             agency.satisfaction
           ]);
@@ -3949,9 +4038,9 @@ function DSIDashboard({ token }: DSIDashboardProps) {
         technicianData.forEach(tech => {
           techTableData.push([
             tech.technicien,
-            tech.ticketsTraites,
+            tech.ticketsTraites.toString(),
             tech.tempsMoyen,
-            tech.chargeActuelle,
+            tech.chargeActuelle.toString(),
             tech.satisfaction
           ]);
         });
@@ -3977,8 +4066,8 @@ function DSIDashboard({ token }: DSIDashboardProps) {
         timeSeriesData.forEach(item => {
           timeSeriesTableData.push([
             item.date,
-            item.créés,
-            item.résolus
+            item.créés.toString(),
+            item.résolus.toString()
           ]);
         });
         const timeSeriesWs = XLSX.utils.aoa_to_sheet(timeSeriesTableData);
@@ -3993,10 +4082,10 @@ function DSIDashboard({ token }: DSIDashboardProps) {
         statusEvolutionData.forEach(item => {
           statusEvolutionTableData.push([
             item.date,
-            item['En attente'],
-            item['En cours'],
-            item['Résolus'],
-            item['Clôturés']
+            item['En attente'].toString(),
+            item['En cours'].toString(),
+            item['Résolus'].toString(),
+            item['Clôturés'].toString()
           ]);
         });
         const statusEvolutionWs = XLSX.utils.aoa_to_sheet(statusEvolutionTableData);
@@ -4011,7 +4100,7 @@ function DSIDashboard({ token }: DSIDashboardProps) {
         priorityEvolutionData.forEach(item => {
           priorityTableData.push([
             item.priorité,
-            item.nombre
+            item.nombre.toString()
           ]);
         });
         const priorityWs = XLSX.utils.aoa_to_sheet(priorityTableData);
@@ -4026,7 +4115,7 @@ function DSIDashboard({ token }: DSIDashboardProps) {
         dayOfWeekData.forEach(item => {
           dayTableData.push([
             item.jour,
-            item.tickets
+            item.tickets.toString()
           ]);
         });
         const dayWs = XLSX.utils.aoa_to_sheet(dayTableData);
@@ -4041,7 +4130,7 @@ function DSIDashboard({ token }: DSIDashboardProps) {
         hourlyData.forEach(item => {
           hourlyTableData.push([
             item.heure,
-            item.tickets
+            item.tickets.toString()
           ]);
         });
         const hourlyWs = XLSX.utils.aoa_to_sheet(hourlyTableData);
@@ -4057,7 +4146,7 @@ function DSIDashboard({ token }: DSIDashboardProps) {
           satisfactionData.forEach(item => {
             satisfactionTableData.push([
               item.date,
-              item.satisfaction
+              item.satisfaction.toString()
             ]);
           });
           const satisfactionWs = XLSX.utils.aoa_to_sheet(satisfactionTableData);
@@ -4223,7 +4312,7 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
       filteredTickets = filteredTickets.filter((t) => !delegatedTicketsByMe.has(t.id));
     }
   } else if (delegationFilter !== "all" && userRole !== "DSI") {
-    // Pour les autres rôles, utiliser l'ancienne logique
+    // Pour les autres rôles, utiliser la logique basée sur secretary_id
     if (delegationFilter === "delegated") {
       filteredTickets = filteredTickets.filter((t) => t.secretary_id !== null && t.secretary_id !== undefined);
     } else if (delegationFilter === "not_delegated") {
@@ -4619,7 +4708,15 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
                 </svg>
               </div>
               <div style={{ flex: 1 }}>Paramètres</div>
-              <div style={{ fontSize: "12px" }}>{showSettingsDropdown ? "▼" : "▶"}</div>
+              <div style={{ width: "16px", height: "16px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  {showSettingsDropdown ? (
+                    <polyline points="6 9 12 15 18 9" />
+                  ) : (
+                    <polyline points="9 18 15 12 9 6" />
+                  )}
+                </svg>
+              </div>
             </div>
             {showSettingsDropdown && (
               <div style={{ 
@@ -5206,518 +5303,1073 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
         </div>
       </div>
 
-      {/* Tableau des tickets récents */}
-      <h3 style={{ marginTop: "8px", marginBottom: "12px", fontSize: "22px", fontWeight: "600", color: "#333" }}>
-        Tickets Récents
-      </h3>
-      <div style={{ 
-        display: "flex", 
-        gap: "16px", 
-        marginTop: "0",
-        marginBottom: "16px", 
-        flexWrap: "wrap",
-        background: "white",
-        padding: "16px",
-        borderRadius: "8px",
-        boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
-      }}>
-        <div style={{ flex: 1, minWidth: "200px" }}>
-          <label style={{ display: "block", marginBottom: "8px", fontSize: "14px", fontWeight: "500", color: "#666" }}>Filtrer par statut</label>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            style={{ 
-              width: "100%", 
-              padding: "8px 12px", 
-              border: "1px solid #ddd", 
-              borderRadius: "4px",
-              fontSize: "14px"
-            }}
-          >
-            <option value="all">Tous les statuts</option>
-            <option value="en_attente_analyse">En attente</option>
-            <option value="en_traitement">En traitement</option>
-            <option value="resolu">Résolus</option>
-            <option value="cloture">Clôturés</option>
-            <option value="rejete">Rejetés</option>
-          </select>
-        </div>
-        <div style={{ flex: 1, minWidth: "200px" }}>
-          <label style={{ display: "block", marginBottom: "8px", fontSize: "14px", fontWeight: "500", color: "#666" }}>Filtrer par agence</label>
-          <select
-            value={agencyFilter}
-            onChange={(e) => setAgencyFilter(e.target.value)}
-            style={{ 
-              width: "100%", 
-              padding: "8px 12px", 
-              border: "1px solid #ddd", 
-              borderRadius: "4px",
-              fontSize: "14px"
-            }}
-          >
-            <option value="all">Toutes les agences</option>
-            {allAgencies.map((agency) => (
-              <option key={agency} value={agency || ""}>{agency}</option>
-            ))}
-          </select>
-        </div>
-        <div style={{ flex: 1, minWidth: "200px" }}>
-          <label style={{ display: "block", marginBottom: "8px", fontSize: "14px", fontWeight: "500", color: "#666" }}>Filtrer par priorité</label>
-          <select
-            value={priorityFilter}
-            onChange={(e) => setPriorityFilter(e.target.value)}
-            style={{ 
-              width: "100%", 
-              padding: "8px 12px", 
-              border: "1px solid #ddd", 
-              borderRadius: "4px",
-              fontSize: "14px"
-            }}
-          >
-            <option value="all">Toutes les priorités</option>
-            <option value="critique">Critique</option>
-            <option value="haute">Haute</option>
-            <option value="moyenne">Moyenne</option>
-            <option value="faible">Faible</option>
-          </select>
-        </div>
-        <div style={{ flex: 1, minWidth: "200px" }}>
-          <label style={{ display: "block", marginBottom: "8px", fontSize: "14px", fontWeight: "500", color: "#666" }}>Filtrer par délégation</label>
-          <select
-            value={delegationFilter}
-            onChange={(e) => setDelegationFilter(e.target.value)}
-            style={{ 
-              width: "100%", 
-              padding: "8px 12px", 
-              border: "1px solid #ddd", 
-              borderRadius: "4px",
-              fontSize: "14px"
-            }}
-          >
-            <option value="all">Tous les tickets</option>
-            <option value="delegated">Tickets délégués</option>
-            <option value="not_delegated">Tickets non délégués</option>
-          </select>
-        </div>
-      </div>
-      <table style={{ width: "100%", borderCollapse: "collapse", background: "white", borderRadius: "8px", boxShadow: "0 2px 4px rgba(0,0,0,0.1)" }}>
-        <thead>
-          <tr style={{ background: "#f8f9fa" }}>
-            <th style={{ padding: "12px 16px", textAlign: "left", borderBottom: "1px solid #dee2e6" }}>ID</th>
-            <th style={{ padding: "12px 16px", textAlign: "left", borderBottom: "1px solid #dee2e6" }}>Titre</th>
-            <th style={{ padding: "12px 16px", textAlign: "left", borderBottom: "1px solid #dee2e6" }}>Nom</th>
-            <th style={{ padding: "12px 16px", textAlign: "left", borderBottom: "1px solid #dee2e6" }}>Agence</th>
-            <th style={{ padding: "12px 16px", textAlign: "left", borderBottom: "1px solid #dee2e6" }}>Priorité</th>
-            <th style={{ padding: "12px 16px", textAlign: "left", borderBottom: "1px solid #dee2e6" }}>Statut</th>
-            <th style={{ padding: "12px 16px", textAlign: "left", borderBottom: "1px solid #dee2e6" }}>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {(() => {
-            // Appliquer les filtres puis trier les tickets par date de création (plus récents en premier) et prendre les 5 premiers
-            let recentFilteredTickets = [...filteredTickets]
-              .sort((a, b) => {
-                const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
-                const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
-                return dateB - dateA; // Tri décroissant (plus récent en premier)
-              })
-              .slice(0, 5); // Prendre les 5 premiers
-            
-            const recentTickets = recentFilteredTickets;
+      {/* Section Tickets Récents pour DSI */}
+      {userRole === "DSI" && (
+        <>
+          {/* Tableau des tickets récents */}
+          <h3 style={{ marginTop: "8px", marginBottom: "12px", fontSize: "22px", fontWeight: "600", color: "#333" }}>
+            Tickets Récents
+          </h3>
+          <div style={{ 
+            display: "flex", 
+            gap: "16px", 
+            marginTop: "0",
+            marginBottom: "16px", 
+            flexWrap: "wrap",
+            background: "white",
+            padding: "16px",
+            borderRadius: "8px",
+            boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
+          }}>
+            <div style={{ flex: 1, minWidth: "200px" }}>
+              <label style={{ display: "block", marginBottom: "8px", fontSize: "14px", fontWeight: "500", color: "#666" }}>Filtrer par statut</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                style={{ 
+                  width: "100%", 
+                  padding: "8px 12px", 
+                  border: "1px solid #ddd", 
+                  borderRadius: "4px",
+                  fontSize: "14px"
+                }}
+              >
+                <option value="all">Tous les statuts</option>
+                <option value="en_attente_analyse">En attente</option>
+                <option value="en_traitement">En traitement</option>
+                <option value="resolu">Résolus</option>
+                <option value="cloture">Clôturés</option>
+                <option value="rejete">Rejetés</option>
+              </select>
+            </div>
+            <div style={{ flex: 1, minWidth: "200px" }}>
+              <label style={{ display: "block", marginBottom: "8px", fontSize: "14px", fontWeight: "500", color: "#666" }}>Filtrer par agence</label>
+              <select
+                value={agencyFilter}
+                onChange={(e) => setAgencyFilter(e.target.value)}
+                style={{ 
+                  width: "100%", 
+                  padding: "8px 12px", 
+                  border: "1px solid #ddd", 
+                  borderRadius: "4px",
+                  fontSize: "14px"
+                }}
+              >
+                <option value="all">Toutes les agences</option>
+                {allAgencies.map((agency) => (
+                  <option key={agency} value={agency || ""}>{agency}</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ flex: 1, minWidth: "200px" }}>
+              <label style={{ display: "block", marginBottom: "8px", fontSize: "14px", fontWeight: "500", color: "#666" }}>Filtrer par priorité</label>
+              <select
+                value={priorityFilter}
+                onChange={(e) => setPriorityFilter(e.target.value)}
+                style={{ 
+                  width: "100%", 
+                  padding: "8px 12px", 
+                  border: "1px solid #ddd", 
+                  borderRadius: "4px",
+                  fontSize: "14px"
+                }}
+              >
+                <option value="all">Toutes les priorités</option>
+                <option value="critique">Critique</option>
+                <option value="haute">Haute</option>
+                <option value="moyenne">Moyenne</option>
+                <option value="faible">Faible</option>
+              </select>
+            </div>
+            <div style={{ flex: 1, minWidth: "200px" }}>
+              <label style={{ display: "block", marginBottom: "8px", fontSize: "14px", fontWeight: "500", color: "#666" }}>Filtrer par délégation</label>
+              <select
+                value={delegationFilter}
+                onChange={(e) => setDelegationFilter(e.target.value)}
+                style={{ 
+                  width: "100%", 
+                  padding: "8px 12px", 
+                  border: "1px solid #ddd", 
+                  borderRadius: "4px",
+                  fontSize: "14px"
+                }}
+              >
+                <option value="all">Tous les tickets</option>
+                <option value="delegated">Tickets délégués</option>
+                <option value="not_delegated">Tickets non délégués</option>
+              </select>
+            </div>
+          </div>
+          <table style={{ width: "100%", borderCollapse: "collapse", background: "white", borderRadius: "8px", boxShadow: "0 2px 4px rgba(0,0,0,0.1)" }}>
+            <thead>
+              <tr style={{ background: "#f8f9fa" }}>
+                <th style={{ padding: "12px 16px", textAlign: "left", borderBottom: "1px solid #dee2e6" }}>ID</th>
+                <th style={{ padding: "12px 16px", textAlign: "left", borderBottom: "1px solid #dee2e6" }}>Titre</th>
+                <th style={{ padding: "12px 16px", textAlign: "left", borderBottom: "1px solid #dee2e6" }}>Nom</th>
+                <th style={{ padding: "12px 16px", textAlign: "left", borderBottom: "1px solid #dee2e6" }}>Agence</th>
+                <th style={{ padding: "12px 16px", textAlign: "left", borderBottom: "1px solid #dee2e6" }}>Priorité</th>
+                <th style={{ padding: "12px 16px", textAlign: "left", borderBottom: "1px solid #dee2e6" }}>Statut</th>
+                <th style={{ padding: "12px 16px", textAlign: "left", borderBottom: "1px solid #dee2e6" }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(() => {
+                // Appliquer les filtres puis trier les tickets par date de création (plus récents en premier) et prendre les 5 premiers
+                let recentFilteredTickets = [...filteredTickets]
+                  .sort((a, b) => {
+                    const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+                    const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+                    return dateB - dateA; // Tri décroissant (plus récent en premier)
+                  })
+                  .slice(0, 5); // Prendre les 5 premiers
+                
+                const recentTickets = recentFilteredTickets;
 
-            if (recentTickets.length === 0) {
-              return (
-                <tr>
-                  <td colSpan={7} style={{ textAlign: "center", padding: "20px", color: "#999" }}>
-                    Aucun ticket
-                  </td>
-                </tr>
-              );
-            }
+                if (recentTickets.length === 0) {
+                  return (
+                    <tr>
+                      <td colSpan={7} style={{ textAlign: "center", padding: "20px", color: "#999" }}>
+                        Aucun ticket
+                      </td>
+                    </tr>
+                  );
+                }
 
-            return recentTickets.map((t) => (
-              <tr key={t.id} style={{ borderBottom: "1px solid #eee" }}>
-                <td style={{ padding: "12px 16px" }}>#{t.number}</td>
-                <td style={{ padding: "12px 16px" }}>{t.title}</td>
-                <td style={{ padding: "12px 16px" }}>
-                  {t.creator ? t.creator.full_name : "N/A"}
-                </td>
-                <td style={{ padding: "12px 16px" }}>
-                  {t.creator ? (t.creator.agency || t.user_agency || "N/A") : (t.user_agency || "N/A")}
-                </td>
-                <td style={{ padding: "12px 16px" }}>
-                  <span style={{
-                    padding: "6px 12px",
-                    borderRadius: "20px",
-                    fontSize: "12px",
-                    fontWeight: "500",
-                    background: t.priority === "critique" ? "#fee2e2" : t.priority === "haute" ? "#fed7aa" : t.priority === "moyenne" ? "#dbeafe" : t.priority === "faible" ? "#fee2e2" : "#e5e7eb",
-                    color: t.priority === "critique" ? "#991b1b" : t.priority === "haute" ? "#92400e" : t.priority === "moyenne" ? "#1e40af" : t.priority === "faible" ? "#991b1b" : "#374151"
-                  }}>
-                    {t.priority}
-                  </span>
-                </td>
-                <td style={{ padding: "12px 16px" }}>
-                  <span style={{
-                    padding: "6px 12px",
-                    borderRadius: "20px",
-                    fontSize: "12px",
-                    fontWeight: "500",
-                    background: t.status === "en_attente_analyse" ? "#fef3c7" : 
-                               t.status === "assigne_technicien" ? "#dbeafe" : 
-                               t.status === "en_cours" ? "#fed7aa" : 
-                               t.status === "resolu" ? "#d4edda" : 
-                               t.status === "cloture" ? "#e5e7eb" :
-                               t.status === "rejete" ? "#fee2e2" : "#e5e7eb",
-                    color: t.status === "en_attente_analyse" ? "#92400e" : 
-                           t.status === "assigne_technicien" ? "#1e40af" : 
-                           t.status === "en_cours" ? "#9a3412" : 
-                           t.status === "resolu" ? "#155724" : 
-                           t.status === "cloture" ? "#374151" :
-                           t.status === "rejete" ? "#991b1b" : "#374151",
-                    whiteSpace: "nowrap",
-                    display: "inline-block"
-                  }}>
-                    {t.status === "en_attente_analyse" ? "En attente" :
-                     t.status === "assigne_technicien" ? "Assigné" :
-                     t.status === "en_cours" ? "En cours" :
-                     t.status === "resolu" ? "Résolu" :
-                     t.status === "cloture" ? "Clôturé" :
-                     t.status === "rejete" ? "Rejeté" : t.status}
-                  </span>
-                </td>
-                <td style={{ padding: "12px 16px" }}>
-                  {t.status === "cloture" ? (
-                    // Pas d'action pour tickets clôturés
-                    <span style={{ color: "#999", fontSize: "12px" }}>
-                      Clôturé
-                    </span>
-                  ) : (
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px", position: "relative" }}>
-                      <button
-                        onClick={(e) => { 
-                          e.stopPropagation(); 
-                          
-                          const isOpen = openActionsMenuFor === t.id;
-                          if (isOpen) {
-                            setOpenActionsMenuFor(null);
-                            setActionsMenuPosition(null);
-                            return;
-                          }
+                return recentTickets.map((t) => (
+                  <tr key={t.id} style={{ borderBottom: "1px solid #eee" }}>
+                    <td style={{ padding: "12px 16px" }}>#{t.number}</td>
+                    <td style={{ padding: "12px 16px" }}>{t.title}</td>
+                    <td style={{ padding: "12px 16px" }}>
+                      {t.creator ? t.creator.full_name : "N/A"}
+                    </td>
+                    <td style={{ padding: "12px 16px" }}>
+                      {t.creator ? (t.creator.agency || t.user_agency || "N/A") : (t.user_agency || "N/A")}
+                    </td>
+                    <td style={{ padding: "12px 16px" }}>
+                      <span style={{
+                        padding: "6px 12px",
+                        borderRadius: "20px",
+                        fontSize: "12px",
+                        fontWeight: "500",
+                        background: t.priority === "critique" ? "#fee2e2" : t.priority === "haute" ? "#fed7aa" : t.priority === "moyenne" ? "#dbeafe" : t.priority === "faible" ? "#fee2e2" : "#e5e7eb",
+                        color: t.priority === "critique" ? "#991b1b" : t.priority === "haute" ? "#92400e" : t.priority === "moyenne" ? "#1e40af" : t.priority === "faible" ? "#991b1b" : "#374151"
+                      }}>
+                        {t.priority}
+                      </span>
+                    </td>
+                    <td style={{ padding: "12px 16px" }}>
+                      <span style={{
+                        padding: "6px 12px",
+                        borderRadius: "20px",
+                        fontSize: "12px",
+                        fontWeight: "500",
+                        background: t.status === "en_attente_analyse" ? "#fef3c7" : 
+                                   t.status === "assigne_technicien" ? "#dbeafe" : 
+                                   t.status === "en_cours" ? "#fed7aa" : 
+                                   t.status === "resolu" ? "#d4edda" : 
+                                   t.status === "cloture" ? "#e5e7eb" :
+                                   t.status === "rejete" ? "#fee2e2" : "#e5e7eb",
+                        color: t.status === "en_attente_analyse" ? "#92400e" : 
+                               t.status === "assigne_technicien" ? "#1e40af" : 
+                               t.status === "en_cours" ? "#9a3412" : 
+                               t.status === "resolu" ? "#155724" : 
+                               t.status === "cloture" ? "#374151" :
+                               t.status === "rejete" ? "#991b1b" : "#374151",
+                        whiteSpace: "nowrap",
+                        display: "inline-block"
+                      }}>
+                        {t.status === "en_attente_analyse" ? "En attente" :
+                         t.status === "assigne_technicien" ? "Assigné" :
+                         t.status === "en_cours" ? "En cours" :
+                         t.status === "resolu" ? "Résolu" :
+                         t.status === "cloture" ? "Clôturé" :
+                         t.status === "rejete" ? "Rejeté" : t.status}
+                      </span>
+                    </td>
+                    <td style={{ padding: "12px 16px" }}>
+                      {t.status === "cloture" ? (
+                        // Pas d'action pour tickets clôturés
+                        <span style={{ color: "#999", fontSize: "12px" }}>
+                          Clôturé
+                        </span>
+                      ) : (
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", position: "relative" }}>
+                          <button
+                            onClick={(e) => { 
+                              e.stopPropagation(); 
+                              
+                              const isOpen = openActionsMenuFor === t.id;
+                              if (isOpen) {
+                                setOpenActionsMenuFor(null);
+                                setActionsMenuPosition(null);
+                                return;
+                              }
 
-                          const buttonRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                          const viewportHeight = window.innerHeight;
-                          const menuWidth = 220;
-                          const menuHeight = 220; // hauteur approximative
+                              const buttonRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                              const viewportHeight = window.innerHeight;
+                              const menuWidth = 220;
+                              const menuHeight = 220; // hauteur approximative
 
-                          let top = buttonRect.bottom + 4; // par défaut en dessous
-                          // Si pas assez d'espace en bas mais assez en haut, afficher vers le haut
-                          if (viewportHeight - buttonRect.bottom < menuHeight && buttonRect.top > menuHeight) {
-                            top = buttonRect.top - menuHeight - 4;
-                          }
+                              let top = buttonRect.bottom + 4; // par défaut en dessous
+                              // Si pas assez d'espace en bas mais assez en haut, afficher vers le haut
+                              if (viewportHeight - buttonRect.bottom < menuHeight && buttonRect.top > menuHeight) {
+                                top = buttonRect.top - menuHeight - 4;
+                              }
 
-                          let left = buttonRect.right - menuWidth;
-                          if (left < 8) left = 8;
+                              let left = buttonRect.right - menuWidth;
+                              if (left < 8) left = 8;
 
-                          setActionsMenuPosition({ top, left });
-                          setOpenActionsMenuFor(t.id);
-                        }}
-                        disabled={loading}
-                        title="Actions"
-                        aria-label="Actions"
-                        style={{
-                          width: 28,
-                          height: 28,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          background: "transparent",
-                          border: "none",
-                          borderRadius: 0,
-                          cursor: "pointer",
-                          color: "#475569",
-                          backgroundImage:
-                            "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='12' cy='5' r='2' fill='%23475569'/><circle cx='12' cy='12' r='2' fill='%23475569'/><circle cx='12' cy='19' r='2' fill='%23475569'/></svg>\")",
-                          backgroundRepeat: "no-repeat",
-                          backgroundPosition: "center",
-                          backgroundSize: "18px 18px"
-                        }}
-                      />
-                      {openActionsMenuFor === t.id && actionsMenuPosition && (
-                        <div
-                          style={{
-                            position: "fixed",
-                            top: actionsMenuPosition.top,
-                            left: actionsMenuPosition.left,
-                            background: "white",
-                            border: "1px solid #e5e7eb",
-                            borderRadius: 8,
-                            boxShadow: "0 8px 16px rgba(0,0,0,0.1)",
-                            minWidth: 180,
-                            zIndex: 1000,
-                            maxHeight: 280,
-                            overflowY: "auto"
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {t.status === "en_attente_analyse" && (
-                            <>
-                              <button
-                                onClick={() => { loadTicketDetails(t.id); setOpenActionsMenuFor(null); }}
-                                disabled={loading}
-                                style={{ 
-                                  width: "100%", 
-                                  padding: "10px 12px", 
-                                  background: "transparent", 
-                                  border: "none", 
-                                  textAlign: "left", 
-                                  cursor: "pointer",
-                                  color: "#111827",
-                                  fontSize: "14px",
-                                  display: "block",
-                                  whiteSpace: "nowrap"
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.backgroundColor = "#f3f4f6";
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.backgroundColor = "transparent";
-                                }}
-                              >
-                                Voir détails
-                              </button>
-                              <button
-                                onClick={() => { handleAssignClick(t.id); setOpenActionsMenuFor(null); }}
-                                disabled={loading}
-                                style={{ 
-                                  width: "100%", 
-                                  padding: "10px 12px", 
-                                  background: "transparent", 
-                                  border: "none", 
-                                  borderTop: "1px solid #e5e7eb",
-                                  textAlign: "left", 
-                                  cursor: loading ? "not-allowed" : "pointer",
-                                  color: "#111827",
-                                  fontSize: "14px",
-                                  display: "block",
-                                  whiteSpace: "nowrap",
-                                  opacity: loading ? 0.6 : 1
-                                }}
-                                onMouseEnter={(e) => {
-                                  if (!loading) e.currentTarget.style.backgroundColor = "#f3f4f6";
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.backgroundColor = "transparent";
-                                }}
-                              >
-                                Assigner
-                              </button>
-                              {userRole === "DSI" && (
-                                <button
-                                  onClick={() => { handleDelegateClick(t.id); setOpenActionsMenuFor(null); }}
-                                  disabled={loading}
-                                  style={{ 
-                                    width: "100%", 
-                                    padding: "10px 12px", 
-                                    background: "transparent", 
-                                    border: "none", 
-                                    borderTop: "1px solid #e5e7eb",
-                                    textAlign: "left", 
-                                    cursor: loading ? "not-allowed" : "pointer",
-                                    color: "#111827",
-                                    fontSize: "14px",
-                                    display: "block",
-                                    whiteSpace: "nowrap",
-                                    opacity: loading ? 0.6 : 1
-                                  }}
-                                  onMouseEnter={(e) => {
-                                    if (!loading) e.currentTarget.style.backgroundColor = "#f3f4f6";
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.currentTarget.style.backgroundColor = "transparent";
-                                  }}
-                                >
-                                  Déléguer à un adjoint
-                                </button>
-                              )}
-                              {canEscalate() && (
-                                <button
-                                  onClick={() => { handleEscalate(t.id); setOpenActionsMenuFor(null); }}
-                                  disabled={loading}
-                                  style={{ 
-                                    width: "100%", 
-                                    padding: "10px 12px", 
-                                    background: "transparent", 
-                                    border: "none", 
-                                    borderTop: "1px solid #e5e7eb",
-                                    textAlign: "left", 
-                                    cursor: loading ? "not-allowed" : "pointer",
-                                    color: "#111827",
-                                    fontSize: "14px",
-                                    display: "block",
-                                    whiteSpace: "nowrap",
-                                    opacity: loading ? 0.6 : 1
-                                  }}
-                                  onMouseEnter={(e) => {
-                                    if (!loading) e.currentTarget.style.backgroundColor = "#f3f4f6";
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.currentTarget.style.backgroundColor = "transparent";
-                                  }}
-                                >
-                                  Escalader
-                                </button>
-                              )}
-                            </>
-                          )}
-                          {(t.status === "assigne_technicien" || t.status === "en_cours") && (
-                            <>
-                              <button
-                                onClick={() => { loadTicketDetails(t.id); setOpenActionsMenuFor(null); }}
-                                disabled={loading}
-                                style={{ 
-                                  width: "100%", 
-                                  padding: "10px 12px", 
-                                  background: "transparent", 
-                                  border: "none", 
-                                  textAlign: "left", 
-                                  cursor: "pointer",
-                                  color: "#111827",
-                                  fontSize: "14px",
-                                  display: "block",
-                                  whiteSpace: "nowrap"
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.backgroundColor = "#f3f4f6";
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.backgroundColor = "transparent";
-                                }}
-                              >
-                                Voir détails
-                              </button>
-                              <button
-                                onClick={() => { handleReassignClick(t.id); setOpenActionsMenuFor(null); }}
-                                disabled={loading}
-                                style={{ 
-                                  width: "100%", 
-                                  padding: "10px 12px", 
-                                  background: "transparent", 
-                                  border: "none", 
-                                  borderTop: "1px solid #e5e7eb",
-                                  textAlign: "left", 
-                                  cursor: loading ? "not-allowed" : "pointer",
-                                  color: "#111827",
-                                  fontSize: "14px",
-                                  display: "block",
-                                  whiteSpace: "nowrap",
-                                  opacity: loading ? 0.6 : 1
-                                }}
-                                onMouseEnter={(e) => {
-                                  if (!loading) e.currentTarget.style.backgroundColor = "#f3f4f6";
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.backgroundColor = "transparent";
-                                }}
-                              >
-                                Réassigner
-                              </button>
-                              {canEscalate() && (
-                                <button
-                                  onClick={() => { handleEscalate(t.id); setOpenActionsMenuFor(null); }}
-                                  disabled={loading}
-                                  style={{ 
-                                    width: "100%", 
-                                    padding: "10px 12px", 
-                                    background: "transparent", 
-                                    border: "none", 
-                                    borderTop: "1px solid #e5e7eb",
-                                    textAlign: "left", 
-                                    cursor: loading ? "not-allowed" : "pointer",
-                                    color: "#111827",
-                                    fontSize: "14px",
-                                    display: "block",
-                                    whiteSpace: "nowrap",
-                                    opacity: loading ? 0.6 : 1
-                                  }}
-                                  onMouseEnter={(e) => {
-                                    if (!loading) e.currentTarget.style.backgroundColor = "#f3f4f6";
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.currentTarget.style.backgroundColor = "transparent";
-                                  }}
-                                >
-                                  Escalader
-                                </button>
-                              )}
-                            </>
-                          )}
-                          {t.status === "resolu" && (
-                            <button
-                              onClick={() => { handleClose(t.id); setOpenActionsMenuFor(null); }}
-                              disabled={loading}
-                              style={{ 
-                                width: "100%", 
-                                padding: "10px 12px", 
-                                background: "transparent", 
-                                border: "none", 
-                                textAlign: "left", 
-                                cursor: loading ? "not-allowed" : "pointer",
-                                color: "#111827",
-                                fontSize: "14px",
-                                display: "block",
-                                whiteSpace: "nowrap",
-                                opacity: loading ? 0.6 : 1
+                              setActionsMenuPosition({ top, left });
+                              setOpenActionsMenuFor(t.id);
+                            }}
+                            disabled={loading}
+                            title="Actions"
+                            aria-label="Actions"
+                            style={{
+                              width: 28,
+                              height: 28,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              background: "transparent",
+                              border: "none",
+                              borderRadius: 0,
+                              cursor: "pointer",
+                              color: "#475569",
+                              backgroundImage:
+                                "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='12' cy='5' r='2' fill='%23475569'/><circle cx='12' cy='12' r='2' fill='%23475569'/><circle cx='12' cy='19' r='2' fill='%23475569'/></svg>\")",
+                              backgroundRepeat: "no-repeat",
+                              backgroundPosition: "center",
+                              backgroundSize: "18px 18px"
+                            }}
+                          />
+                          {openActionsMenuFor === t.id && actionsMenuPosition && (
+                            <div
+                              style={{
+                                position: "fixed",
+                                top: actionsMenuPosition.top,
+                                left: actionsMenuPosition.left,
+                                background: "white",
+                                border: "1px solid #e5e7eb",
+                                borderRadius: 8,
+                                boxShadow: "0 8px 16px rgba(0,0,0,0.1)",
+                                minWidth: 180,
+                                zIndex: 1000,
+                                maxHeight: 280,
+                                overflowY: "auto"
                               }}
-                              onMouseEnter={(e) => {
-                                if (!loading) e.currentTarget.style.backgroundColor = "#f3f4f6";
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = "transparent";
-                              }}
+                              onClick={(e) => e.stopPropagation()}
                             >
-                              Clôturer
-                            </button>
-                          )}
-                          {t.status === "rejete" && (
-                            <button
-                              onClick={() => { handleReopenClick(t.id); setOpenActionsMenuFor(null); }}
-                              disabled={loading}
-                              style={{ 
-                                width: "100%", 
-                                padding: "10px 12px", 
-                                background: "transparent", 
-                                border: "none", 
-                                textAlign: "left", 
-                                cursor: loading ? "not-allowed" : "pointer",
-                                color: "#111827",
-                                fontSize: "14px",
-                                display: "block",
-                                whiteSpace: "nowrap",
-                                opacity: loading ? 0.6 : 1
-                              }}
-                              onMouseEnter={(e) => {
-                                if (!loading) e.currentTarget.style.backgroundColor = "#f3f4f6";
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = "transparent";
-                              }}
-                            >
-                              Réouvrir
-                            </button>
+                              {t.status === "en_attente_analyse" && (
+                                <>
+                                  <button
+                                    onClick={() => { loadTicketDetails(t.id); setOpenActionsMenuFor(null); }}
+                                    disabled={loading}
+                                    style={{ 
+                                      width: "100%", 
+                                      padding: "10px 12px", 
+                                      background: "transparent", 
+                                      border: "none", 
+                                      textAlign: "left", 
+                                      cursor: "pointer",
+                                      color: "#111827",
+                                      fontSize: "14px",
+                                      display: "block",
+                                      whiteSpace: "nowrap"
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.backgroundColor = "#f3f4f6";
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.backgroundColor = "transparent";
+                                    }}
+                                  >
+                                    Voir détails
+                                  </button>
+                                  <button
+                                    onClick={() => { handleAssignClick(t.id); setOpenActionsMenuFor(null); }}
+                                    disabled={loading}
+                                    style={{ 
+                                      width: "100%", 
+                                      padding: "10px 12px", 
+                                      background: "transparent", 
+                                      border: "none", 
+                                      borderTop: "1px solid #e5e7eb",
+                                      textAlign: "left", 
+                                      cursor: loading ? "not-allowed" : "pointer",
+                                      color: "#111827",
+                                      fontSize: "14px",
+                                      display: "block",
+                                      whiteSpace: "nowrap",
+                                      opacity: loading ? 0.6 : 1
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      if (!loading) e.currentTarget.style.backgroundColor = "#f3f4f6";
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.backgroundColor = "transparent";
+                                    }}
+                                  >
+                                    Assigner
+                                  </button>
+                                  {userRole === "DSI" && (
+                                    <button
+                                      onClick={() => { handleDelegateClick(t.id); setOpenActionsMenuFor(null); }}
+                                      disabled={loading}
+                                      style={{ 
+                                        width: "100%", 
+                                        padding: "10px 12px", 
+                                        background: "transparent", 
+                                        border: "none", 
+                                        borderTop: "1px solid #e5e7eb",
+                                        textAlign: "left", 
+                                        cursor: loading ? "not-allowed" : "pointer",
+                                        color: "#111827",
+                                        fontSize: "14px",
+                                        display: "block",
+                                        whiteSpace: "nowrap",
+                                        opacity: loading ? 0.6 : 1
+                                      }}
+                                      onMouseEnter={(e) => {
+                                        if (!loading) e.currentTarget.style.backgroundColor = "#f3f4f6";
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor = "transparent";
+                                      }}
+                                    >
+                                      Déléguer à un adjoint
+                                    </button>
+                                  )}
+                                  {canEscalate() && (
+                                    <button
+                                      onClick={() => { handleEscalate(t.id); setOpenActionsMenuFor(null); }}
+                                      disabled={loading}
+                                      style={{ 
+                                        width: "100%", 
+                                        padding: "10px 12px", 
+                                        background: "transparent", 
+                                        border: "none", 
+                                        borderTop: "1px solid #e5e7eb",
+                                        textAlign: "left", 
+                                        cursor: loading ? "not-allowed" : "pointer",
+                                        color: "#111827",
+                                        fontSize: "14px",
+                                        display: "block",
+                                        whiteSpace: "nowrap",
+                                        opacity: loading ? 0.6 : 1
+                                      }}
+                                      onMouseEnter={(e) => {
+                                        if (!loading) e.currentTarget.style.backgroundColor = "#f3f4f6";
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor = "transparent";
+                                      }}
+                                    >
+                                      Escalader
+                                    </button>
+                                  )}
+                                </>
+                              )}
+                              {(t.status === "assigne_technicien" || t.status === "en_cours") && (
+                                <>
+                                  <button
+                                    onClick={() => { loadTicketDetails(t.id); setOpenActionsMenuFor(null); }}
+                                    disabled={loading}
+                                    style={{ 
+                                      width: "100%", 
+                                      padding: "10px 12px", 
+                                      background: "transparent", 
+                                      border: "none", 
+                                      textAlign: "left", 
+                                      cursor: "pointer",
+                                      color: "#111827",
+                                      fontSize: "14px",
+                                      display: "block",
+                                      whiteSpace: "nowrap"
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.backgroundColor = "#f3f4f6";
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.backgroundColor = "transparent";
+                                    }}
+                                  >
+                                    Voir détails
+                                  </button>
+                                  <button
+                                    onClick={() => { handleReassignClick(t.id); setOpenActionsMenuFor(null); }}
+                                    disabled={loading}
+                                    style={{ 
+                                      width: "100%", 
+                                      padding: "10px 12px", 
+                                      background: "transparent", 
+                                      border: "none", 
+                                      borderTop: "1px solid #e5e7eb",
+                                      textAlign: "left", 
+                                      cursor: loading ? "not-allowed" : "pointer",
+                                      color: "#111827",
+                                      fontSize: "14px",
+                                      display: "block",
+                                      whiteSpace: "nowrap",
+                                      opacity: loading ? 0.6 : 1
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      if (!loading) e.currentTarget.style.backgroundColor = "#f3f4f6";
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.backgroundColor = "transparent";
+                                    }}
+                                  >
+                                    Réassigner
+                                  </button>
+                                  {canEscalate() && (
+                                    <button
+                                      onClick={() => { handleEscalate(t.id); setOpenActionsMenuFor(null); }}
+                                      disabled={loading}
+                                      style={{ 
+                                        width: "100%", 
+                                        padding: "10px 12px", 
+                                        background: "transparent", 
+                                        border: "none", 
+                                        borderTop: "1px solid #e5e7eb",
+                                        textAlign: "left", 
+                                        cursor: loading ? "not-allowed" : "pointer",
+                                        color: "#111827",
+                                        fontSize: "14px",
+                                        display: "block",
+                                        whiteSpace: "nowrap",
+                                        opacity: loading ? 0.6 : 1
+                                      }}
+                                      onMouseEnter={(e) => {
+                                        if (!loading) e.currentTarget.style.backgroundColor = "#f3f4f6";
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor = "transparent";
+                                      }}
+                                    >
+                                      Escalader
+                                    </button>
+                                  )}
+                                </>
+                              )}
+                              {t.status === "resolu" && (
+                                <button
+                                  onClick={() => { handleClose(t.id); setOpenActionsMenuFor(null); }}
+                                  disabled={loading}
+                                  style={{ 
+                                    width: "100%", 
+                                    padding: "10px 12px", 
+                                    background: "transparent", 
+                                    border: "none", 
+                                    textAlign: "left", 
+                                    cursor: loading ? "not-allowed" : "pointer",
+                                    color: "#111827",
+                                    fontSize: "14px",
+                                    display: "block",
+                                    whiteSpace: "nowrap",
+                                    opacity: loading ? 0.6 : 1
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    if (!loading) e.currentTarget.style.backgroundColor = "#f3f4f6";
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = "transparent";
+                                  }}
+                                >
+                                  Clôturer
+                                </button>
+                              )}
+                              {t.status === "rejete" && (
+                                <button
+                                  onClick={() => { handleReopenClick(t.id); setOpenActionsMenuFor(null); }}
+                                  disabled={loading}
+                                  style={{ 
+                                    width: "100%", 
+                                    padding: "10px 12px", 
+                                    background: "transparent", 
+                                    border: "none", 
+                                    textAlign: "left", 
+                                    cursor: loading ? "not-allowed" : "pointer",
+                                    color: "#111827",
+                                    fontSize: "14px",
+                                    display: "block",
+                                    whiteSpace: "nowrap",
+                                    opacity: loading ? 0.6 : 1
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    if (!loading) e.currentTarget.style.backgroundColor = "#f3f4f6";
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = "transparent";
+                                  }}
+                                >
+                                  Réouvrir
+                                </button>
+                              )}
+                            </div>
                           )}
                         </div>
                       )}
+                    </td>
+                  </tr>
+                ));
+              })()}
+            </tbody>
+          </table>
+        </>
+      )}
+
+      {/* Vue d'ensemble globale - Graphiques pour l'administrateur */}
+      {userRole === "Admin" && (
+      <div style={{ marginTop: "32px" }}>
+        <h2 style={{ fontSize: "22px", fontWeight: 700, color: "#111827", marginBottom: "4px" }}>
+          Vue d'ensemble de l'application
+        </h2>
+        <p style={{ fontSize: "14px", color: "#4b5563", marginBottom: "24px" }}>
+          Synthèse globale de l'activité : volumes, statuts, priorités, agences, types et rythmes de création
+        </p>
+
+        {/* Ligne 1 : Volume dans le temps + Répartition par statut */}
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1.5fr)", gap: "24px", marginBottom: "24px" }}>
+          {/* Volume de tickets (30 jours) */}
+          <div style={{ background: "white", borderRadius: "12px", padding: "20px", boxShadow: "0 6px 18px rgba(15,23,42,0.06)" }}>
+            <h3 style={{ fontSize: "18px", fontWeight: 600, color: "#111827", marginBottom: "12px" }}>
+              Volume de tickets (30 derniers jours)
+      </h3>
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart data={prepareTimeSeriesData()}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="date" stroke="#6b7280" style={{ fontSize: "12px" }} />
+                <YAxis stroke="#6b7280" style={{ fontSize: "12px" }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "white",
+                    border: "1px solid #e5e7eb",
+        borderRadius: "8px",
+                    boxShadow: "0 4px 6px rgba(0,0,0,0.1)"
+                  }}
+                />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="créés"
+                  name="Créés"
+                  stroke="#3b82f6"
+                  strokeWidth={2.5}
+                  dot={{ r: 3 }}
+                  activeDot={{ r: 5 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="résolus"
+                  name="Résolus"
+                  stroke="#16a34a"
+                  strokeWidth={2.5}
+                  dot={{ r: 3 }}
+                  activeDot={{ r: 5 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+        </div>
+
+          {/* Répartition par statut */}
+          <div style={{ background: "white", borderRadius: "12px", padding: "20px", boxShadow: "0 6px 18px rgba(15,23,42,0.06)" }}>
+            <h3 style={{ fontSize: "18px", fontWeight: 600, color: "#111827", marginBottom: "12px" }}>
+              Répartition par statut
+            </h3>
+            {(() => {
+              const statusData = [
+                { name: "En attente", value: allTickets.filter((t) => t.status === "en_attente_analyse").length, color: "#f97316" },
+                { name: "Assignés / En cours", value: allTickets.filter((t) => t.status === "assigne_technicien" || t.status === "en_cours").length, color: "#3b82f6" },
+                { name: "Résolus", value: allTickets.filter((t) => t.status === "resolu").length, color: "#22c55e" },
+                { name: "Clôturés", value: allTickets.filter((t) => t.status === "cloture").length, color: "#facc15" },
+                { name: "Rejetés", value: allTickets.filter((t) => t.status === "rejete").length, color: "#ef4444" }
+              ].filter(item => item.value > 0);
+
+              return statusData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={280}>
+                  <PieChart>
+                    <Pie
+                      data={statusData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      outerRadius={100}
+                      dataKey="value"
+                      nameKey="name"
+                    >
+                      {statusData.map((entry, index) => (
+                        <Cell key={`cell-status-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value: any, _name: any, props: any) =>
+                        [`${value} ticket(s)`, props.payload.name]
+                      }
+                      contentStyle={{
+                        backgroundColor: "white",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: "8px",
+                        boxShadow: "0 4px 6px rgba(0,0,0,0.1)"
+                      }}
+                    />
+                    <Legend verticalAlign="bottom" height={36} />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div style={{ padding: "40px", textAlign: "center", color: "#9ca3af" }}>
+                  Aucune donnée à afficher
+        </div>
+              );
+            })()}
+        </div>
+      </div>
+
+        {/* Ligne 2 : Priorités + Types (Matériel/Applicatif) */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "24px", marginBottom: "24px" }}>
+          {/* Répartition par priorité */}
+          <div style={{ background: "white", borderRadius: "12px", padding: "20px", boxShadow: "0 6px 18px rgba(15,23,42,0.06)" }}>
+            <h3 style={{ fontSize: "18px", fontWeight: 600, color: "#111827", marginBottom: "12px" }}>
+              Répartition par priorité
+            </h3>
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={preparePriorityEvolutionData()}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="priorité" stroke="#6b7280" style={{ fontSize: "12px" }} />
+                <YAxis stroke="#6b7280" style={{ fontSize: "12px" }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "white",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: "8px",
+                    boxShadow: "0 4px 6px rgba(0,0,0,0.1)"
+                  }}
+                />
+                <Legend />
+                <Bar dataKey="nombre" radius={[8, 8, 0, 0]}>
+                  {preparePriorityEvolutionData().map((entry, index) => {
+                    const priorityColors: { [key: string]: string } = {
+                      'Critique': '#ef4444',
+                      'Haute': '#f97316',
+                      'Moyenne': '#3b82f6',
+                      'Faible': '#6b7280'
+                    };
+                    return <Cell key={`cell-priority-${index}`} fill={priorityColors[entry.priorité] || '#3b82f6'} />;
+                  })}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Répartition par type (Matériel/Applicatif) */}
+          <div style={{ background: "white", borderRadius: "12px", padding: "20px", boxShadow: "0 6px 18px rgba(15,23,42,0.06)" }}>
+            <h3 style={{ fontSize: "18px", fontWeight: 600, color: "#111827", marginBottom: "12px" }}>
+              Répartition par type
+            </h3>
+            {(() => {
+              const typeData = [
+                { name: "Matériel", value: allTickets.filter((t) => t.type === "materiel").length, color: "#8b5cf6" },
+                { name: "Applicatif", value: allTickets.filter((t) => t.type === "applicatif").length, color: "#06b6d4" }
+              ].filter(item => item.value > 0);
+
+              return typeData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={260}>
+                  <PieChart>
+                    <Pie
+                      data={typeData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      outerRadius={100}
+                      dataKey="value"
+                      nameKey="name"
+                    >
+                      {typeData.map((entry, index) => (
+                        <Cell key={`cell-type-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value: any, _name: any, props: any) =>
+                        [`${value} ticket(s)`, props.payload.name]
+                      }
+                      contentStyle={{
+                        backgroundColor: "white",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: "8px",
+                        boxShadow: "0 4px 6px rgba(0,0,0,0.1)"
+                      }}
+                    />
+                    <Legend verticalAlign="bottom" height={36} />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div style={{ padding: "40px", textAlign: "center", color: "#9ca3af" }}>
+                  Aucune donnée à afficher
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+
+        {/* Ligne 3 : Agences + Jours de la semaine */}
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.5fr) minmax(0, 1fr)", gap: "24px", marginBottom: "24px" }}>
+          {/* Tickets par agence */}
+          <div style={{ background: "white", borderRadius: "12px", padding: "20px", boxShadow: "0 6px 18px rgba(15,23,42,0.06)" }}>
+            <h3 style={{ fontSize: "18px", fontWeight: 600, color: "#111827", marginBottom: "12px" }}>
+              Tickets par agence
+            </h3>
+            {(() => {
+              const agencyData = prepareAgencyData().slice(0, 10); // Top 10 agences
+              return agencyData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart 
+                    data={agencyData} 
+                    layout="vertical"
+                    margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis type="number" stroke="#6b7280" style={{ fontSize: "12px" }} />
+                    <YAxis dataKey="agence" type="category" stroke="#6b7280" style={{ fontSize: "12px" }} width={90} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "white",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: "8px",
+                        boxShadow: "0 4px 6px rgba(0,0,0,0.1)"
+                      }}
+                    />
+                    <Legend />
+                    <Bar 
+                      dataKey="tickets" 
+                      radius={[0, 8, 8, 0]}
+                      fill="#4b5563"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div style={{ padding: "40px", textAlign: "center", color: "#9ca3af" }}>
+                  Aucune donnée à afficher
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Pics d'activité par jour */}
+          <div style={{ background: "white", borderRadius: "12px", padding: "20px", boxShadow: "0 6px 18px rgba(15,23,42,0.06)" }}>
+            <h3 style={{ fontSize: "18px", fontWeight: 600, color: "#111827", marginBottom: "12px" }}>
+              Pics d'activité (jours de la semaine)
+            </h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={prepareDayOfWeekData()}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="jour" stroke="#6b7280" style={{ fontSize: "12px" }} />
+                <YAxis stroke="#6b7280" style={{ fontSize: "12px" }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "white",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: "8px",
+                    boxShadow: "0 4px 6px rgba(0,0,0,0.1)"
+                  }}
+                />
+                <Legend />
+                <Bar dataKey="tickets" radius={[8, 8, 0, 0]} fill="#10b981" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Ligne 4 : Évolution par statut (7 derniers jours) */}
+        <div style={{ marginBottom: "24px" }}>
+          <div style={{ background: "white", borderRadius: "12px", padding: "20px", boxShadow: "0 6px 18px rgba(15,23,42,0.06)" }}>
+            <h3 style={{ fontSize: "18px", fontWeight: 600, color: "#111827", marginBottom: "12px" }}>
+              Évolution par statut (7 derniers jours)
+            </h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={prepareStatusEvolutionData()}>
+                <defs>
+                  <linearGradient id="colorEnAttente" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#f97316" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#f97316" stopOpacity={0.1}/>
+                  </linearGradient>
+                  <linearGradient id="colorEnCours" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1}/>
+                  </linearGradient>
+                  <linearGradient id="colorResolus" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0.1}/>
+                  </linearGradient>
+                  <linearGradient id="colorClotures" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#facc15" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#facc15" stopOpacity={0.1}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="date" stroke="#6b7280" style={{ fontSize: "12px" }} />
+                <YAxis stroke="#6b7280" style={{ fontSize: "12px" }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "white",
+                            border: "1px solid #e5e7eb",
+                    borderRadius: "8px",
+                    boxShadow: "0 4px 6px rgba(0,0,0,0.1)"
+                  }}
+                />
+                <Legend />
+                <Area type="monotone" dataKey="En attente" stackId="1" stroke="#f97316" fill="url(#colorEnAttente)" />
+                <Area type="monotone" dataKey="En cours" stackId="1" stroke="#3b82f6" fill="url(#colorEnCours)" />
+                <Area type="monotone" dataKey="Résolus" stackId="1" stroke="#22c55e" fill="url(#colorResolus)" />
+                <Area type="monotone" dataKey="Clôturés" stackId="1" stroke="#facc15" fill="url(#colorClotures)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Ligne 5 : Utilisateurs par rôle + Techniciens par spécialisation */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "24px", marginBottom: "24px" }}>
+          {/* Répartition des utilisateurs par rôle */}
+          <div style={{ background: "white", borderRadius: "12px", padding: "20px", boxShadow: "0 6px 18px rgba(15,23,42,0.06)" }}>
+            <h3 style={{ fontSize: "18px", fontWeight: 600, color: "#111827", marginBottom: "12px" }}>
+              Répartition des utilisateurs par rôle
+            </h3>
+            {(() => {
+              const roleData = prepareUsersByRoleData();
+              return roleData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={roleData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      outerRadius={100}
+                      dataKey="nombre"
+                      nameKey="rôle"
+                    >
+                      {roleData.map((entry, index) => {
+                        const roleColors: { [key: string]: string } = {
+                          'Admin': '#ef4444',
+                          'DSI': '#3b82f6',
+                          'Secrétaire': '#22c55e',
+                          'Adjoint DSI': '#f97316',
+                          'Technicien': '#8b5cf6',
+                          'Utilisateur': '#6b7280',
+                          'Sans rôle': '#9ca3af'
+                        };
+                        return <Cell key={`cell-role-${index}`} fill={roleColors[entry.rôle] || '#9ca3af'} />;
+                      })}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value: any, _name: any, props: any) =>
+                        [`${value} utilisateur(s)`, props.payload.rôle]
+                      }
+                      contentStyle={{
+                        backgroundColor: "white",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: "8px",
+                        boxShadow: "0 4px 6px rgba(0,0,0,0.1)"
+                      }}
+                    />
+                    <Legend verticalAlign="bottom" height={36} />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div style={{ padding: "40px", textAlign: "center", color: "#9ca3af" }}>
+                  Aucune donnée à afficher
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Répartition des techniciens par spécialisation */}
+          <div style={{ background: "white", borderRadius: "12px", padding: "20px", boxShadow: "0 6px 18px rgba(15,23,42,0.06)" }}>
+            <h3 style={{ fontSize: "18px", fontWeight: 600, color: "#111827", marginBottom: "12px" }}>
+              Répartition des techniciens par spécialisation
+            </h3>
+            {(() => {
+              const specData = prepareTechniciansBySpecializationData();
+              return specData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={specData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      outerRadius={100}
+                      dataKey="nombre"
+                      nameKey="spécialisation"
+                    >
+                      {specData.map((entry, index) => {
+                        const specColors: { [key: string]: string } = {
+                          'materiel': '#8b5cf6',
+                          'applicatif': '#06b6d4',
+                          'Non spécifié': '#9ca3af'
+                        };
+                        return <Cell key={`cell-spec-${index}`} fill={specColors[entry.spécialisation] || '#9ca3af'} />;
+                      })}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value: any, _name: any, props: any) => {
+                        const displayName = props.payload.spécialisation === 'materiel' ? 'Matériel' : 
+                                          props.payload.spécialisation === 'applicatif' ? 'Applicatif' : props.payload.spécialisation;
+                        return [`${value} technicien(s)`, displayName];
+                      }}
+                      contentStyle={{
+                        backgroundColor: "white",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: "8px",
+                        boxShadow: "0 4px 6px rgba(0,0,0,0.1)"
+                      }}
+                    />
+                    <Legend 
+                      verticalAlign="bottom" 
+                      height={36}
+                      formatter={(value: string) => {
+                        if (value === 'materiel') return 'Matériel';
+                        if (value === 'applicatif') return 'Applicatif';
+                        return value;
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div style={{ padding: "40px", textAlign: "center", color: "#9ca3af" }}>
+                  Aucune donnée à afficher
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+
+        {/* Ligne 6 : Charge de travail par technicien + Utilisateurs les plus actifs */}
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.5fr) minmax(0, 1fr)", gap: "24px", marginBottom: "24px" }}>
+          {/* Charge de travail par technicien */}
+          <div style={{ background: "white", borderRadius: "12px", padding: "20px", boxShadow: "0 6px 18px rgba(15,23,42,0.06)" }}>
+            <h3 style={{ fontSize: "18px", fontWeight: 600, color: "#111827", marginBottom: "12px" }}>
+              Charge de travail par technicien (Top 10)
+            </h3>
+            {(() => {
+              const workloadData = prepareTechnicianWorkloadData();
+              return workloadData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart 
+                    data={workloadData} 
+                    layout="vertical"
+                    margin={{ top: 5, right: 30, left: 120, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis type="number" stroke="#6b7280" style={{ fontSize: "12px" }} />
+                    <YAxis dataKey="technicien" type="category" stroke="#6b7280" style={{ fontSize: "12px" }} width={110} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "white",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: "8px",
+                        boxShadow: "0 4px 6px rgba(0,0,0,0.1)"
+                      }}
+                    />
+                    <Legend />
+                    <Bar dataKey="assignés" radius={[0, 0, 0, 0]} fill="#3b82f6" name="Assignés" />
+                    <Bar dataKey="résolus" radius={[0, 8, 8, 0]} fill="#22c55e" name="Résolus" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div style={{ padding: "40px", textAlign: "center", color: "#9ca3af" }}>
+                  Aucune donnée à afficher
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Utilisateurs les plus actifs */}
+          <div style={{ background: "white", borderRadius: "12px", padding: "20px", boxShadow: "0 6px 18px rgba(15,23,42,0.06)" }}>
+            <h3 style={{ fontSize: "18px", fontWeight: 600, color: "#111827", marginBottom: "12px" }}>
+              Utilisateurs les plus actifs (Top 10)
+            </h3>
+            {(() => {
+              const activeUsersData = prepareMostActiveUsersData();
+              return activeUsersData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart 
+                    data={activeUsersData} 
+                    layout="vertical"
+                    margin={{ top: 5, right: 30, left: 120, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis type="number" stroke="#6b7280" style={{ fontSize: "12px" }} />
+                    <YAxis dataKey="utilisateur" type="category" stroke="#6b7280" style={{ fontSize: "12px" }} width={110} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "white",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: "8px",
+                        boxShadow: "0 4px 6px rgba(0,0,0,0.1)"
+                      }}
+                    />
+                    <Legend />
+                    <Bar 
+                      dataKey="tickets" 
+                      radius={[0, 8, 8, 0]}
+                      fill="#8b5cf6"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div style={{ padding: "40px", textAlign: "center", color: "#9ca3af" }}>
+                  Aucune donnée à afficher
+                        </div>
+              );
+            })()}
                     </div>
-                  )}
-                </td>
-              </tr>
-            ));
+        </div>
+
+        {/* Ligne 7 : Temps moyen de résolution par type */}
+        <div style={{ marginBottom: "24px" }}>
+          <div style={{ background: "white", borderRadius: "12px", padding: "20px", boxShadow: "0 6px 18px rgba(15,23,42,0.06)" }}>
+            <h3 style={{ fontSize: "18px", fontWeight: 600, color: "#111827", marginBottom: "12px" }}>
+              Temps moyen de résolution par type (en heures)
+            </h3>
+            {(() => {
+              const resolutionTimeData = prepareResolutionTimeByTypeData();
+              return resolutionTimeData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={resolutionTimeData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis dataKey="type" stroke="#6b7280" style={{ fontSize: "12px" }} />
+                    <YAxis stroke="#6b7280" style={{ fontSize: "12px" }} label={{ value: 'Heures', angle: -90, position: 'insideLeft' }} />
+                    <Tooltip
+                      formatter={(value: any) => [`${value} heures`, 'Temps moyen']}
+                      contentStyle={{
+                        backgroundColor: "white",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: "8px",
+                        boxShadow: "0 4px 6px rgba(0,0,0,0.1)"
+                      }}
+                    />
+                    <Legend />
+                    <Bar dataKey="tempsMoyen" radius={[8, 8, 0, 0]}>
+                      {resolutionTimeData.map((entry, index) => {
+                        const typeColors: { [key: string]: string } = {
+                          'Matériel': '#8b5cf6',
+                          'Applicatif': '#06b6d4'
+                        };
+                        return <Cell key={`cell-resolution-${index}`} fill={typeColors[entry.type] || '#3b82f6'} />;
+                      })}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div style={{ padding: "40px", textAlign: "center", color: "#9ca3af" }}>
+                  Aucune donnée à afficher
+                </div>
+              );
           })()}
-        </tbody>
-      </table>
-    </>
-  )}
+          </div>
+        </div>
+      </div>
+      )}
 
       {viewTicketDetails && ticketDetails && (
         <div style={{
@@ -5811,6 +6463,8 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
           </div>
         </div>
       )}
+            </>
+          )}
 
           {activeSection === "tickets" && (
             <>
@@ -13052,8 +13706,7 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
                   return filteredTechs.map((tech) => {
                     const workload = allTickets.filter((tk) => 
                       tk.technician_id === tech.id && 
-                      (tk.status === "assigne_technicien" || tk.status === "en_cours") &&
-                      tk.status !== "resolu" && tk.status !== "cloture"
+                      (tk.status === "assigne_technicien" || tk.status === "en_cours")
                     ).length;
                     const specialization = tech.specialization ? ` (${tech.specialization})` : "";
                     return (
@@ -13195,8 +13848,7 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
                   return filteredTechs.map((tech) => {
                     const workload = allTickets.filter((tk) => 
                       tk.technician_id === tech.id && 
-                      (tk.status === "assigne_technicien" || tk.status === "en_cours") &&
-                      tk.status !== "resolu" && tk.status !== "cloture"
+                      (tk.status === "assigne_technicien" || tk.status === "en_cours")
                     ).length;
                     const specialization = tech.specialization ? ` (${tech.specialization})` : "";
                     return (
@@ -13419,8 +14071,7 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
                   return filteredTechs.map((tech) => {
                     const workload = allTickets.filter((tk) => 
                       tk.technician_id === tech.id && 
-                      (tk.status === "assigne_technicien" || tk.status === "en_cours") &&
-                      tk.status !== "resolu" && tk.status !== "cloture"
+                      (tk.status === "assigne_technicien" || tk.status === "en_cours")
                     ).length;
                     const specialization = tech.specialization ? ` (${tech.specialization})` : "";
                     return (

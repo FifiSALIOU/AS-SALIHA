@@ -4,6 +4,19 @@ import { PanelLeft, Clock3, Users, CheckCircle2, FileBarChart, ChevronRight, Che
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
+import {
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer
+} from "recharts";
 
 interface SecretaryDashboardProps {
   token: string;
@@ -476,6 +489,83 @@ function SecretaryDashboard({ token }: SecretaryDashboardProps) {
       }));
   };
 
+  // Fonctions pour préparer les données des graphiques (réutilisées pour les exports "Évolutions dans le temps")
+  const prepareTimeSeriesData = () => {
+    const last30Days = Array.from({ length: 30 }, (_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (29 - i));
+      return date;
+    });
+
+    return last30Days.map(date => {
+      const dateStr = date.toISOString().split('T')[0];
+      const dayTickets = allTickets.filter(t => {
+        if (!t.created_at) return false;
+        const ticketDate = new Date(t.created_at).toISOString().split('T')[0];
+        return ticketDate === dateStr;
+      });
+      const resolvedDayTickets = allTickets.filter(t => {
+        if (!t.created_at) return false;
+        const ticketDate = new Date(t.created_at).toISOString().split('T')[0];
+        return ticketDate === dateStr && (t.status === "resolu" || t.status === "cloture");
+      });
+
+      return {
+        date: date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }),
+        créés: dayTickets.length,
+        résolus: resolvedDayTickets.length
+      };
+    });
+  };
+
+  const prepareStatusEvolutionData = () => {
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (6 - i));
+      return date;
+    });
+
+    return last7Days.map(date => {
+      const dateStr = date.toISOString().split('T')[0];
+      const dayTickets = allTickets.filter(t => {
+        if (!t.created_at) return false;
+        const ticketDate = new Date(t.created_at).toISOString().split('T')[0];
+        return ticketDate === dateStr;
+      });
+
+      return {
+        date: date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }),
+        'En attente': dayTickets.filter(t => t.status === "en_attente_analyse").length,
+        'En cours': dayTickets.filter(t => t.status === "assigne_technicien" || t.status === "en_cours").length,
+        'Résolus': dayTickets.filter(t => t.status === "resolu").length,
+        'Clôturés': dayTickets.filter(t => t.status === "cloture").length
+      };
+    });
+  };
+
+  const preparePriorityEvolutionData = () => {
+    const priorities = ['critique', 'haute', 'moyenne', 'faible'];
+    return priorities.map(priority => ({
+      priorité: priority.charAt(0).toUpperCase() + priority.slice(1),
+      nombre: allTickets.filter(t => t.priority === priority).length
+    }));
+  };
+
+  const prepareDayOfWeekData = () => {
+    const days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+    return days.map((day, index) => {
+      const dayTickets = allTickets.filter(t => {
+        if (!t.created_at) return false;
+        const ticketDate = new Date(t.created_at);
+        return ticketDate.getDay() === (index === 6 ? 0 : index + 1);
+      });
+      return {
+        jour: day,
+        tickets: dayTickets.length
+      };
+    });
+  };
+
   // Fonction helper pour obtenir uniquement les tickets de l'agence de l'adjoint connecté (pour les exports uniquement)
   const getMyAgencyTicketsForExport = (): Ticket[] => {
     // Si pas d'agence définie, retourner tous les tickets (comportement par défaut pour l'affichage)
@@ -571,23 +661,6 @@ function SecretaryDashboard({ token }: SecretaryDashboardProps) {
       }));
   };
 
-  const getProblematicApplicationsForExport = () => {
-    const myTickets = getMyAgencyTicketsForExport();
-    const typeCounts: { [key: string]: number } = {};
-    
-    myTickets.forEach(ticket => {
-      const type = ticket.type || 'autre';
-      typeCounts[type] = (typeCounts[type] || 0) + 1;
-    });
-
-    return Object.entries(typeCounts)
-      .sort((a, b) => b[1] - a[1])
-      .map(([type, count]) => ({
-        application: type === 'materiel' ? 'Matériel' : type === 'applicatif' ? 'Applicatif' : type.charAt(0).toUpperCase() + type.slice(1),
-        tickets: count
-      }));
-  };
-
   // Fonctions d'export pour les rapports
   const exportProblemsHistoryToPDF = (reportType: string = "Problèmes récurrents") => {
     try {
@@ -600,15 +673,19 @@ function SecretaryDashboard({ token }: SecretaryDashboardProps) {
         doc.text(`Agence: ${userInfo.agency}`, 14, 40);
       }
       
-      // Utiliser les mêmes données que l'affichage (filtrées par agence si possible)
-      const problems = getRecurringTicketsHistoryForExport();
-      const mostFrequent = getMostFrequentProblemsForExport();
-      const problematicApps = getProblematicApplicationsForExport();
-      
-      // Si aucune donnée filtrée, utiliser les données affichées (pour éviter un export vide)
-      const problemsToUse = problems.length > 0 ? problems : getRecurringTicketsHistory();
-      const mostFrequentToUse = mostFrequent.length > 0 ? mostFrequent : getMostFrequentProblems();
-      const problematicAppsToUse = problematicApps.length > 0 ? problematicApps : getProblematicApplications();
+      // Utiliser exactement les mêmes données que l'affichage (adjoint)
+      const problemsToUse = getRecurringTicketsHistory();
+      const mostFrequentToUse = getMostFrequentProblems();
+      const agenciesStats = Array.from(
+        new Set(allTickets.map((t) => t.creator?.agency || t.user_agency).filter(Boolean))
+      )
+        .map((agency) => ({
+          agency,
+          count: allTickets.filter(
+            (t) => (t.creator?.agency || t.user_agency) === agency
+          ).length,
+        }))
+        .sort((a, b) => b.count - a.count);
       
       let startY = userInfo?.agency ? 50 : 40;
       
@@ -631,7 +708,8 @@ function SecretaryDashboard({ token }: SecretaryDashboardProps) {
         });
       }
       
-      if (problemsToUse.length === 0 && mostFrequentToUse.length === 0 && problematicAppsToUse.length === 0) {
+      // Si aucune donnée pertinente n'est disponible pour l'adjoint
+      if (problemsToUse.length === 0 && mostFrequentToUse.length === 0 && agenciesStats.length === 0) {
         doc.setFontSize(12);
         doc.text("Aucune donnée disponible.", 14, startY + 10);
       }
@@ -654,22 +732,22 @@ function SecretaryDashboard({ token }: SecretaryDashboardProps) {
           headStyles: { fillColor: [30, 58, 95] },
         });
       }
-      
-      if (problematicAppsToUse.length > 0) {
-        const finalY = (doc as any).lastAutoTable?.finalY || startY + 10;
+
+      if (agenciesStats.length > 0) {
+        const finalY2 = (doc as any).lastAutoTable?.finalY || startY + 10;
         doc.setFontSize(14);
-        doc.text("Applications/équipements problématiques", 14, finalY + 15);
-        
-        const tableData3 = problematicAppsToUse.map(item => [
-          item.application || "",
-          item.tickets.toString()
+        doc.text("Agences avec le plus de tickets", 14, finalY2 + 15);
+
+        const agencyTable = agenciesStats.map((item) => [
+          item.agency,
+          item.count.toString(),
         ]);
-        
+
         autoTable(doc, {
-          startY: finalY + 20,
-          head: [['Application/Équipement', 'Nombre de tickets']],
-          body: tableData3,
-          theme: 'grid',
+          startY: finalY2 + 20,
+          head: [["Agence", "Nombre de tickets"]],
+          body: agencyTable,
+          theme: "grid",
           headStyles: { fillColor: [30, 58, 95] },
         });
       }
@@ -691,15 +769,19 @@ function SecretaryDashboard({ token }: SecretaryDashboardProps) {
 
   const exportProblemsHistoryToExcel = (reportType: string = "Problèmes récurrents") => {
     try {
-      // Utiliser les mêmes données que l'affichage (filtrées par agence si possible)
-      const problems = getRecurringTicketsHistoryForExport();
-      const mostFrequent = getMostFrequentProblemsForExport();
-      const problematicApps = getProblematicApplicationsForExport();
-      
-      // Si aucune donnée filtrée, utiliser les données affichées (pour éviter un export vide)
-      const problemsToUse = problems.length > 0 ? problems : getRecurringTicketsHistory();
-      const mostFrequentToUse = mostFrequent.length > 0 ? mostFrequent : getMostFrequentProblems();
-      const problematicAppsToUse = problematicApps.length > 0 ? problematicApps : getProblematicApplications();
+      // Utiliser exactement les mêmes données que l'affichage (adjoint)
+      const problemsToUse = getRecurringTicketsHistory();
+      const mostFrequentToUse = getMostFrequentProblems();
+      const agenciesStats = Array.from(
+        new Set(allTickets.map((t) => t.creator?.agency || t.user_agency).filter(Boolean))
+      )
+        .map((agency) => ({
+          agency,
+          count: allTickets.filter(
+            (t) => (t.creator?.agency || t.user_agency) === agency
+          ).length,
+        }))
+        .sort((a, b) => b.count - a.count);
       
       const wb = XLSX.utils.book_new();
       let hasSheets = false;
@@ -733,17 +815,15 @@ function SecretaryDashboard({ token }: SecretaryDashboardProps) {
         hasSheets = true;
       }
       
-      // Feuille 3: Applications/équipements problématiques
-      if (problematicAppsToUse.length > 0) {
-        const wsData3 = [
-          ['Application/Équipement', 'Nombre de tickets'],
-          ...problematicAppsToUse.map(item => [
-            item.application || "",
-            item.tickets
-          ])
+      // Feuille 3: Agences avec le plus de tickets
+      if (agenciesStats.length > 0) {
+        const agencySheetData = [
+          ['Agences avec le plus de tickets'],
+          ['Agence', 'Nombre de tickets'],
+          ...agenciesStats.map(item => [item.agency, item.count])
         ];
-        const ws3 = XLSX.utils.aoa_to_sheet(wsData3);
-        XLSX.utils.book_append_sheet(wb, ws3, sanitizeSheetName("Applications-Équipements"));
+        const ws4 = XLSX.utils.aoa_to_sheet(agencySheetData);
+        XLSX.utils.book_append_sheet(wb, ws4, sanitizeSheetName("Agences"));
         hasSheets = true;
       }
       
@@ -799,7 +879,7 @@ function SecretaryDashboard({ token }: SecretaryDashboardProps) {
       "metriques": "Métriques de performance",
       "agence": "Analyses par agence",
       "technicien": "Analyses par technicien",
-      "evolution": "Évolutions dans le temps",
+      "evolutions": "Évolutions dans le temps",
       "recurrents": "Problèmes récurrents",
       "performance": "Rapports de Performance",
       "tickets": "Rapports Tickets"
@@ -814,14 +894,597 @@ function SecretaryDashboard({ token }: SecretaryDashboardProps) {
       if (selectedReport === "recurrents") {
         exportProblemsHistoryToPDF(reportName);
       } else {
-        // Export générique pour les autres rapports
         const doc = new jsPDF();
+
+        // En-tête commun
         doc.setFontSize(16);
         doc.text(`Rapport: ${reportName}`, 14, 20);
         doc.setFontSize(12);
         doc.text(`Date de génération: ${new Date().toLocaleDateString('fr-FR')}`, 14, 30);
-        doc.text(`Généré par: ${userInfo?.full_name || 'Utilisateur'}`, 14, 40);
-        doc.save(`Rapport_${reportName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+        doc.text(`Généré par: ${userInfo?.full_name || "Utilisateur"}`, 14, 40);
+
+        if (selectedReport === "statistiques") {
+          // Export détaillé pour Statistiques générales (adjoint)
+          const totalTickets = allTickets.length || 1;
+          const closedCount = allTickets.filter((t) => t.status === "cloture").length;
+          const rejectedCount = allTickets.filter((t) => t.status === "rejete").length;
+
+          let currentY = 50;
+          doc.setFontSize(14);
+          doc.text("Répartition par statut", 14, currentY);
+
+          const statusTableData = [
+            [
+              "En attente",
+              pendingTickets.length.toString(),
+              `${totalTickets > 0 ? ((pendingTickets.length / totalTickets) * 100).toFixed(1) : "0"}%`,
+            ],
+            [
+              "Assignés/En cours",
+              assignedTickets.length.toString(),
+              `${totalTickets > 0 ? ((assignedTickets.length / totalTickets) * 100).toFixed(1) : "0"}%`,
+            ],
+            [
+              "Résolus",
+              resolvedCount.toString(),
+              `${totalTickets > 0 ? ((resolvedCount / totalTickets) * 100).toFixed(1) : "0"}%`,
+            ],
+            [
+              "Clôturés",
+              closedCount.toString(),
+              `${totalTickets > 0 ? ((closedCount / totalTickets) * 100).toFixed(1) : "0"}%`,
+            ],
+            [
+              "Rejetés",
+              rejectedCount.toString(),
+              `${totalTickets > 0 ? ((rejectedCount / totalTickets) * 100).toFixed(1) : "0"}%`,
+            ],
+          ];
+
+          autoTable(doc, {
+            startY: currentY + 5,
+            head: [["Statut", "Nombre", "Pourcentage"]],
+            body: statusTableData,
+            theme: "grid",
+            headStyles: { fillColor: [30, 58, 95] },
+          });
+
+          const afterStatusY = (doc as any).lastAutoTable?.finalY || currentY + 25;
+          const priorities: Array<"critique" | "haute" | "moyenne" | "faible"> = [
+            "critique",
+            "haute",
+            "moyenne",
+            "faible",
+          ];
+
+          doc.setFontSize(14);
+          doc.text("Répartition par priorité", 14, afterStatusY + 10);
+
+          const priorityTableData = priorities.map((priority) => {
+            const count = allTickets.filter((t) => t.priority === priority).length;
+            const label = priority.charAt(0).toUpperCase() + priority.slice(1);
+            const percent =
+              totalTickets > 0 ? ((count / totalTickets) * 100).toFixed(1) : "0";
+            return [label, count.toString(), `${percent}%`];
+          });
+
+          autoTable(doc, {
+            startY: afterStatusY + 15,
+            head: [["Priorité", "Nombre", "Pourcentage"]],
+            body: priorityTableData,
+            theme: "grid",
+            headStyles: { fillColor: [30, 58, 95] },
+          });
+
+          doc.save(
+            `Rapport_${reportName.replace(/\s+/g, "_")}_${new Date()
+              .toISOString()
+              .split("T")[0]}.pdf`
+          );
+        } else if (selectedReport === "metriques") {
+          // Export détaillé pour Métriques de performance (adjoint)
+          // Calculer les métriques
+          const resolvedTickets = allTickets.filter((t) => t.status === "resolu" || t.status === "cloture");
+          const rejectedTickets = allTickets.filter((t) => t.status === "rejete");
+          const escalatedTickets = allTickets.filter((t) => t.priority === "critique" && (t.status === "en_attente_analyse" || t.status === "assigne_technicien" || t.status === "en_cours"));
+          const allRejectedTicketIds = new Set(rejectedTickets.map(t => t.id));
+          const reopenedTickets = allTickets.filter((t) => allRejectedTicketIds.has(t.id) && t.status !== "rejete");
+          const totalRejectedEver = rejectedTickets.length + reopenedTickets.length;
+          const reopenRate = totalRejectedEver > 0 ? ((reopenedTickets.length / totalRejectedEver) * 100).toFixed(1) : "0.0";
+          
+          let totalResolutionTime = 0;
+          let resolvedCountWithDates = 0;
+          resolvedTickets.forEach((ticket) => {
+            if (ticket.created_at) {
+              let resolvedDate: Date | null = null;
+              if (ticket.status === "cloture" && ticket.closed_at) {
+                resolvedDate = new Date(ticket.closed_at);
+              } else if (ticket.status === "resolu" && ticket.resolved_at) {
+                resolvedDate = new Date(ticket.resolved_at);
+              }
+              if (resolvedDate) {
+                const created = new Date(ticket.created_at);
+                const diffDays = Math.floor((resolvedDate.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
+                if (diffDays >= 0) {
+                  totalResolutionTime += diffDays;
+                  resolvedCountWithDates++;
+                }
+              }
+            }
+          });
+          const avgResolutionDays = resolvedCountWithDates > 0 ? Math.round(totalResolutionTime / resolvedCountWithDates) : 0;
+          
+          const ticketsWithFeedback = resolvedTickets.filter((t) => t.feedback_score !== null && t.feedback_score !== undefined && t.feedback_score > 0);
+          let satisfactionRate = "0";
+          if (ticketsWithFeedback.length > 0) {
+            const avgFeedback = ticketsWithFeedback.reduce((sum, t) => sum + (t.feedback_score || 0), 0) / ticketsWithFeedback.length;
+            satisfactionRate = ((avgFeedback / 5) * 100).toFixed(1);
+          } else if (resolvedTickets.length > 0) {
+            const resolvedCount = resolvedTickets.length;
+            const rejectedCount = rejectedTickets.length;
+            const baseDenominator = resolvedCount + rejectedCount;
+            satisfactionRate = baseDenominator > 0 ? ((resolvedCount / baseDenominator) * 100).toFixed(1) : "0";
+          }
+          
+          const totalTicketsCount = allTickets.length;
+          const resolvedOrClosedCount = resolvedTickets.length;
+          const resolutionRate = totalTicketsCount > 0 ? `${Math.round((resolvedOrClosedCount / totalTicketsCount) * 100)}%` : "0%";
+          
+          let yPos = 55;
+          doc.setFontSize(14);
+          doc.text("Métriques principales", 14, yPos);
+          yPos += 10;
+          
+          const metricsData = [
+            ["Métrique", "Valeur"],
+            ["Temps moyen de résolution", `${avgResolutionDays} jours`],
+            ["Taux de satisfaction utilisateur", `${satisfactionRate}%`],
+            ["Taux de résolution", resolutionRate],
+            ["Taux de réouverture", `${reopenRate}%`],
+            ["Tickets escaladés", escalatedTickets.length.toString()]
+          ];
+          
+          autoTable(doc, {
+            startY: yPos,
+            head: [metricsData[0]],
+            body: metricsData.slice(1),
+            theme: 'grid',
+            headStyles: { fillColor: [30, 58, 95] },
+          });
+          
+          const finalY = (doc as any).lastAutoTable?.finalY || yPos + 20;
+          yPos = finalY + 15;
+          
+          doc.setFontSize(14);
+          doc.text("Détails", 14, yPos);
+          yPos += 10;
+          
+          const detailsData = [
+            ["Métrique", "Valeur"],
+            ["Tickets résolus/clôturés", resolvedTickets.length.toString()],
+            ["Tickets rejetés", rejectedTickets.length.toString()],
+            ["Tickets escaladés (critiques en cours)", escalatedTickets.length.toString()],
+            ["Tickets satisfaisants (implicite)", resolvedTickets.length.toString()]
+          ];
+          
+          autoTable(doc, {
+            startY: yPos,
+            head: [detailsData[0]],
+            body: detailsData.slice(1),
+            theme: 'grid',
+            headStyles: { fillColor: [30, 58, 95] },
+          });
+          
+          doc.save(
+            `Rapport_${reportName.replace(/\s+/g, "_")}_${new Date()
+              .toISOString()
+              .split("T")[0]}.pdf`
+          );
+        } else if (selectedReport === "agence") {
+          // Export détaillé pour Analyses par agence (adjoint)
+          let yPos = 55;
+
+          // Préparer les données des agences (même logique que l'affichage)
+          const agencies = Array.from(
+            new Set(
+              allTickets
+                .map((t) => t.creator?.agency || t.user_agency)
+                .filter(Boolean)
+            )
+          );
+
+          const agencyData = agencies
+            .map((agency) => {
+              const agencyTickets = allTickets.filter(
+                (t) => (t.creator?.agency || t.user_agency) === agency
+              );
+              const agencyResolvedTickets = agencyTickets.filter(
+                (t) => t.status === "resolu" || t.status === "cloture"
+              );
+              const agencyRejected = agencyTickets.filter(
+                (t) => t.status === "rejete"
+              ).length;
+
+              // Calcul du temps moyen de résolution réel pour l'agence
+              let totalResolutionTime = 0;
+              let resolvedCountWithDates = 0;
+              agencyResolvedTickets.forEach((ticket) => {
+                if (ticket.created_at) {
+                  let resolvedDate: Date | null = null;
+                  if (ticket.status === "cloture" && ticket.closed_at) {
+                    resolvedDate = new Date(ticket.closed_at);
+                  } else if (ticket.status === "resolu" && ticket.resolved_at) {
+                    resolvedDate = new Date(ticket.resolved_at);
+                  }
+                  if (resolvedDate) {
+                    const created = new Date(ticket.created_at);
+                    const diffDays =
+                      (resolvedDate.getTime() - created.getTime()) /
+                      (1000 * 60 * 60 * 24);
+                    if (diffDays >= 0) {
+                      totalResolutionTime += diffDays;
+                      resolvedCountWithDates++;
+                    }
+                  }
+                }
+              });
+
+              const avgResolutionDays =
+                resolvedCountWithDates > 0
+                  ? totalResolutionTime / resolvedCountWithDates
+                  : 0;
+              const avgResolutionDisplay =
+                resolvedCountWithDates > 0
+                  ? avgResolutionDays % 1 === 0
+                    ? `${Math.round(avgResolutionDays)} jour${
+                        Math.round(avgResolutionDays) > 1 ? "s" : ""
+                      }`
+                    : `${avgResolutionDays.toFixed(1)} jours`
+                  : "N/A";
+
+              // Calcul de la satisfaction
+              const ticketsWithFeedback = agencyResolvedTickets.filter(
+                (t) =>
+                  t.feedback_score !== null &&
+                  t.feedback_score !== undefined
+              );
+              let satisfactionDisplay = "N/A";
+
+              if (ticketsWithFeedback.length > 0) {
+                const avgFeedback =
+                  ticketsWithFeedback.reduce(
+                    (sum, t) => sum + (t.feedback_score || 0),
+                    0
+                  ) / ticketsWithFeedback.length;
+                satisfactionDisplay = `${(
+                  (avgFeedback / 5) *
+                  100
+                ).toFixed(1)}%`;
+              } else if (agencyResolvedTickets.length > 0) {
+                const resolvedCount = agencyResolvedTickets.length;
+                const rejectedCount = agencyRejected;
+                const totalProcessed = resolvedCount + rejectedCount;
+                if (totalProcessed > 0) {
+                  const satisfactionRate =
+                    (resolvedCount / totalProcessed) * 100;
+                  satisfactionDisplay = `${satisfactionRate.toFixed(1)}%`;
+                }
+              }
+
+              return {
+                agence: agency,
+                nombreTickets: agencyTickets.length,
+                tempsMoyen: avgResolutionDisplay,
+                satisfaction: satisfactionDisplay,
+              };
+            })
+            .sort((a, b) => b.nombreTickets - a.nombreTickets);
+
+          doc.setFontSize(14);
+          doc.text("Volume de tickets par agence", 14, yPos);
+          yPos += 10;
+          doc.setFontSize(11);
+
+          const agencyTableData = [
+            ["Agence", "Nombre de tickets", "Temps moyen", "Satisfaction"],
+          ];
+
+          agencyData.forEach((agency) => {
+            agencyTableData.push([
+              agency.agence,
+              agency.nombreTickets.toString(),
+              agency.tempsMoyen,
+              agency.satisfaction,
+            ]);
+          });
+
+          autoTable(doc, {
+            startY: yPos,
+            head: [agencyTableData[0]],
+            body: agencyTableData.slice(1),
+            theme: "grid",
+            headStyles: { fillColor: [30, 58, 95] },
+          });
+
+          doc.save(
+            `Rapport_${reportName.replace(/\s+/g, "_")}_${new Date()
+              .toISOString()
+              .split("T")[0]}.pdf`
+          );
+        } else if (selectedReport === "technicien") {
+          // Export détaillé pour Analyses par technicien (adjoint)
+          let yPos = 55;
+
+          // Préparer les données des techniciens (similaire à l'export DSI)
+          const technicianData = technicians.map((tech) => {
+            const techTickets = allTickets.filter(
+              (t) => t.technician_id === tech.id
+            );
+            const inProgress = techTickets.filter(
+              (t) =>
+                t.status === "assigne_technicien" || t.status === "en_cours"
+            ).length;
+            const resolvedTickets = techTickets.filter(
+              (t) => t.status === "resolu" || t.status === "cloture"
+            );
+
+            // Temps moyen de résolution (heures / jours)
+            let avgTimeDisplay = "N/A";
+            if (resolvedTickets.length > 0) {
+              let totalHours = 0;
+              let countWithDates = 0;
+
+              resolvedTickets.forEach((ticket) => {
+                if (ticket.created_at) {
+                  const created = new Date(ticket.created_at);
+                  let resolvedDate: Date | null = null;
+
+                  if (ticket.status === "cloture" && ticket.closed_at) {
+                    resolvedDate = new Date(ticket.closed_at);
+                  } else if (
+                    ticket.status === "resolu" &&
+                    ticket.resolved_at
+                  ) {
+                    resolvedDate = new Date(ticket.resolved_at);
+                  }
+
+                  if (resolvedDate) {
+                    const diffHours =
+                      (resolvedDate.getTime() - created.getTime()) /
+                      (1000 * 60 * 60);
+                    if (diffHours >= 0) {
+                      totalHours += diffHours;
+                      countWithDates++;
+                    }
+                  }
+                }
+              });
+
+              if (countWithDates > 0) {
+                const avgHours = totalHours / countWithDates;
+                if (avgHours < 24) {
+                  avgTimeDisplay = `${avgHours.toFixed(1)}h`;
+                } else {
+                  const avgDays = avgHours / 24;
+                  avgTimeDisplay = `${avgDays.toFixed(1)}j`;
+                }
+              }
+            }
+
+            // Satisfaction (même logique que le tableau affiché : basée sur résolus vs rejetés)
+            const techResolved = resolvedTickets.length;
+            const techRejected = techTickets.filter(
+              (t) => t.status === "rejete"
+            ).length;
+            const techDenominator = techResolved + techRejected;
+            const techSatisfaction =
+              techDenominator > 0
+                ? ((techResolved / techDenominator) * 100).toFixed(1) + "%"
+                : "0%";
+
+            return {
+              technicien: tech.full_name,
+              ticketsTraites: techResolved,
+              tempsMoyen: avgTimeDisplay,
+              chargeActuelle: inProgress,
+              satisfaction: techSatisfaction,
+            };
+          });
+
+          doc.setFontSize(14);
+          doc.text("Performance des techniciens", 14, yPos);
+          yPos += 10;
+          doc.setFontSize(11);
+
+          const techTableData = [
+            [
+              "Technicien",
+              "Tickets traités",
+              "Temps moyen",
+              "Charge actuelle",
+              "Satisfaction",
+            ],
+          ];
+
+          technicianData.forEach((t) => {
+            techTableData.push([
+              t.technicien,
+              t.ticketsTraites.toString(),
+              t.tempsMoyen,
+              t.chargeActuelle.toString(),
+              t.satisfaction,
+            ]);
+          });
+
+          autoTable(doc, {
+            startY: yPos,
+            head: [techTableData[0]],
+            body: techTableData.slice(1),
+            theme: "grid",
+            headStyles: { fillColor: [30, 58, 95] },
+          });
+
+          doc.save(
+            `Rapport_${reportName.replace(/\s+/g, "_")}_${new Date()
+              .toISOString()
+              .split("T")[0]}.pdf`
+          );
+        } else if (selectedReport === "evolutions") {
+          // Export détaillé pour Évolutions dans le temps (adjoint)
+          let yPos = 55;
+
+          // Recalculer exactement les mêmes données que l'affichage
+          const now = new Date();
+          const lastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          const lastMonth = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          const lastMonthStart = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+
+          const ticketsThisWeek = allTickets.filter((t: any) => {
+            const createdDate = new Date(t.created_at);
+            return createdDate >= lastWeek;
+          });
+
+          const ticketsThisMonth = allTickets.filter((t: any) => {
+            const createdDate = new Date(t.created_at);
+            return createdDate >= lastMonth;
+          });
+
+          const ticketsLastMonth = allTickets.filter((t: any) => {
+            const createdDate = new Date(t.created_at);
+            return createdDate >= lastMonthStart && createdDate < lastMonth;
+          });
+
+          const trendThisWeek = ticketsThisWeek.length;
+          const trendLastMonth = ticketsLastMonth.length;
+          const trendChange =
+            trendLastMonth > 0
+              ? (((trendThisWeek - trendLastMonth) / trendLastMonth) * 100).toFixed(1)
+              : "0";
+
+          const ticketsByDay: { [key: string]: number } = {};
+          allTickets.forEach((t: any) => {
+            const date = new Date(t.created_at);
+            const dayName = date.toLocaleDateString("fr-FR", { weekday: "long" });
+            ticketsByDay[dayName] = (ticketsByDay[dayName] || 0) + 1;
+          });
+
+          const busiestDay = Object.entries(ticketsByDay).reduce(
+            (a, b) => (ticketsByDay[a[0]] > ticketsByDay[b[0]] ? a : b),
+            ["", 0] as [string, number]
+          );
+
+          // 1) Indicateurs principaux
+          doc.setFontSize(14);
+          doc.text("Indicateurs principaux", 14, yPos);
+          yPos += 8;
+          doc.setFontSize(11);
+
+          const kpiTable = [
+            ["Ticket cette semaine", ticketsThisWeek.length.toString()],
+            ["Tickets ce mois", ticketsThisMonth.length.toString()],
+            ["Tendance (%)", `${parseFloat(trendChange).toFixed(1)}%`],
+          ];
+
+          autoTable(doc, {
+            startY: yPos,
+            head: [["Indicateur", "Valeur"]],
+            body: kpiTable,
+            theme: "grid",
+            headStyles: { fillColor: [30, 58, 95] },
+          });
+
+          yPos = (doc as any).lastAutoTable?.finalY || yPos + 25;
+
+          // 2) Répartition par jour de la semaine
+          doc.setFontSize(14);
+          doc.text("Répartition par jour de la semaine", 14, yPos + 10);
+          yPos += 20;
+          doc.setFontSize(11);
+
+          const dayTableData = Object.entries(ticketsByDay)
+            .sort((a, b) => b[1] - a[1])
+            .map(([day, count]) => [day, count.toString()]);
+
+          autoTable(doc, {
+            startY: yPos,
+            head: [["Jour", "Nombre de tickets"]],
+            body: dayTableData,
+            theme: "grid",
+            headStyles: { fillColor: [23, 162, 184] },
+          });
+
+          yPos = (doc as any).lastAutoTable?.finalY || yPos + 20;
+
+          // 3) Pics d'activité
+          doc.setFontSize(14);
+          doc.text("Pics d'activité", 14, yPos + 10);
+          yPos += 18;
+          doc.setFontSize(11);
+
+          const busiestText =
+            busiestDay[0] && busiestDay[1]
+              ? `${busiestDay[0]} (${busiestDay[1]} tickets)`
+              : "Aucune donnée";
+          doc.text(`Jour le plus chargé : ${busiestText}`, 14, yPos);
+          yPos += 12;
+
+          // 4) Performance par période
+          doc.setFontSize(14);
+          doc.text("Performance par période", 14, yPos + 8);
+          yPos += 18;
+          doc.setFontSize(11);
+
+          const performanceTable = [
+            [
+              "Cette semaine",
+              ticketsThisWeek.length.toString(),
+              ticketsThisWeek
+                .filter(
+                  (t: any) => t.status === "resolu" || t.status === "cloture"
+                )
+                .length.toString(),
+            ],
+            [
+              "Ce mois",
+              ticketsThisMonth.length.toString(),
+              ticketsThisMonth
+                .filter(
+                  (t: any) => t.status === "resolu" || t.status === "cloture"
+                )
+                .length.toString(),
+            ],
+            [
+              "Mois dernier",
+              ticketsLastMonth.length.toString(),
+              ticketsLastMonth
+                .filter(
+                  (t: any) => t.status === "resolu" || t.status === "cloture"
+                )
+                .length.toString(),
+            ],
+          ];
+
+          autoTable(doc, {
+            startY: yPos,
+            head: [["Période", "Tickets créés", "Tickets résolus"]],
+            body: performanceTable,
+            theme: "grid",
+            headStyles: { fillColor: [40, 167, 69] },
+          });
+
+          doc.save(
+            `Rapport_${reportName.replace(/\s+/g, "_")}_${new Date()
+              .toISOString()
+              .split("T")[0]}.pdf`
+          );
+        } else {
+          // Export générique pour les autres rapports
+          doc.save(
+            `Rapport_${reportName.replace(/\s+/g, "_")}_${new Date()
+              .toISOString()
+              .split("T")[0]}.pdf`
+          );
+        }
       }
     } catch (error) {
       console.error("Erreur lors de l'export PDF:", error);
@@ -836,18 +1499,524 @@ function SecretaryDashboard({ token }: SecretaryDashboardProps) {
       if (selectedReport === "recurrents") {
         exportProblemsHistoryToExcel(reportName);
       } else {
-        // Export générique pour les autres rapports
         const wb = XLSX.utils.book_new();
-        const wsData = [
-          ['Rapport', reportName],
-          ['Date de génération', new Date().toLocaleDateString('fr-FR')],
-          ['Généré par', userInfo?.full_name || 'Utilisateur'],
-          [''],
-          ['Note: Les données détaillées seront disponibles dans une prochaine version.']
-        ];
-        const ws = XLSX.utils.aoa_to_sheet(wsData);
-        XLSX.utils.book_append_sheet(wb, ws, sanitizeSheetName("Rapport"));
-        
+
+        if (selectedReport === "statistiques") {
+          // Export détaillé pour Statistiques générales (adjoint)
+          const totalTickets = allTickets.length || 1;
+          const closedCount = allTickets.filter((t) => t.status === "cloture").length;
+          const rejectedCount = allTickets.filter((t) => t.status === "rejete").length;
+
+          // Feuille récapitulative
+          const summaryData = [
+            ["Rapport", reportName],
+            ["Date de génération", new Date().toLocaleDateString("fr-FR")],
+            ["Généré par", userInfo?.full_name || "Utilisateur"],
+            [""],
+            ["Nombre total de tickets", allTickets.length],
+            ["Tickets résolus/clôturés", resolvedCount + closedCount],
+          ];
+          const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+          XLSX.utils.book_append_sheet(
+            wb,
+            wsSummary,
+            sanitizeSheetName("Résumé")
+          );
+
+          // Feuille Répartition par statut
+          const statusSheetData = [
+            ["Statut", "Nombre", "Pourcentage"],
+            [
+              "En attente",
+              pendingTickets.length,
+              totalTickets > 0
+                ? ((pendingTickets.length / totalTickets) * 100).toFixed(1) + "%"
+                : "0%",
+            ],
+            [
+              "Assignés/En cours",
+              assignedTickets.length,
+              totalTickets > 0
+                ? ((assignedTickets.length / totalTickets) * 100).toFixed(1) + "%"
+                : "0%",
+            ],
+            [
+              "Résolus",
+              resolvedCount,
+              totalTickets > 0
+                ? ((resolvedCount / totalTickets) * 100).toFixed(1) + "%"
+                : "0%",
+            ],
+            [
+              "Clôturés",
+              closedCount,
+              totalTickets > 0
+                ? ((closedCount / totalTickets) * 100).toFixed(1) + "%"
+                : "0%",
+            ],
+            [
+              "Rejetés",
+              rejectedCount,
+              totalTickets > 0
+                ? ((rejectedCount / totalTickets) * 100).toFixed(1) + "%"
+                : "0%",
+            ],
+          ];
+          const wsStatus = XLSX.utils.aoa_to_sheet(statusSheetData);
+          XLSX.utils.book_append_sheet(
+            wb,
+            wsStatus,
+            sanitizeSheetName("Statuts")
+          );
+
+          // Feuille Répartition par priorité
+          const priorities: Array<"critique" | "haute" | "moyenne" | "faible"> = [
+            "critique",
+            "haute",
+            "moyenne",
+            "faible",
+          ];
+          const prioritySheetData: any[][] = [
+            ["Priorité", "Nombre", "Pourcentage"],
+          ];
+          priorities.forEach((priority) => {
+            const count = allTickets.filter((t) => t.priority === priority).length;
+            const label = priority.charAt(0).toUpperCase() + priority.slice(1);
+            const percent =
+              totalTickets > 0 ? ((count / totalTickets) * 100).toFixed(1) + "%" : "0%";
+            prioritySheetData.push([label, count, percent]);
+          });
+          const wsPriority = XLSX.utils.aoa_to_sheet(prioritySheetData);
+          XLSX.utils.book_append_sheet(
+            wb,
+            wsPriority,
+            sanitizeSheetName("Priorités")
+          );
+        } else if (selectedReport === "metriques") {
+          // Export détaillé pour Métriques de performance (adjoint)
+          // Calculer les métriques
+          const resolvedTickets = allTickets.filter((t) => t.status === "resolu" || t.status === "cloture");
+          const rejectedTickets = allTickets.filter((t) => t.status === "rejete");
+          const escalatedTickets = allTickets.filter((t) => t.priority === "critique" && (t.status === "en_attente_analyse" || t.status === "assigne_technicien" || t.status === "en_cours"));
+          const allRejectedTicketIds = new Set(rejectedTickets.map(t => t.id));
+          const reopenedTickets = allTickets.filter((t) => allRejectedTicketIds.has(t.id) && t.status !== "rejete");
+          const totalRejectedEver = rejectedTickets.length + reopenedTickets.length;
+          const reopenRate = totalRejectedEver > 0 ? ((reopenedTickets.length / totalRejectedEver) * 100).toFixed(1) : "0.0";
+          
+          let totalResolutionTime = 0;
+          let resolvedCountWithDates = 0;
+          resolvedTickets.forEach((ticket) => {
+            if (ticket.created_at) {
+              let resolvedDate: Date | null = null;
+              if (ticket.status === "cloture" && ticket.closed_at) {
+                resolvedDate = new Date(ticket.closed_at);
+              } else if (ticket.status === "resolu" && ticket.resolved_at) {
+                resolvedDate = new Date(ticket.resolved_at);
+              }
+              if (resolvedDate) {
+                const created = new Date(ticket.created_at);
+                const diffDays = Math.floor((resolvedDate.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
+                if (diffDays >= 0) {
+                  totalResolutionTime += diffDays;
+                  resolvedCountWithDates++;
+                }
+              }
+            }
+          });
+          const avgResolutionDays = resolvedCountWithDates > 0 ? Math.round(totalResolutionTime / resolvedCountWithDates) : 0;
+          
+          const ticketsWithFeedback = resolvedTickets.filter((t) => t.feedback_score !== null && t.feedback_score !== undefined && t.feedback_score > 0);
+          let satisfactionRate = "0";
+          if (ticketsWithFeedback.length > 0) {
+            const avgFeedback = ticketsWithFeedback.reduce((sum, t) => sum + (t.feedback_score || 0), 0) / ticketsWithFeedback.length;
+            satisfactionRate = ((avgFeedback / 5) * 100).toFixed(1);
+          } else if (resolvedTickets.length > 0) {
+            const resolvedCount = resolvedTickets.length;
+            const rejectedCount = rejectedTickets.length;
+            const baseDenominator = resolvedCount + rejectedCount;
+            satisfactionRate = baseDenominator > 0 ? ((resolvedCount / baseDenominator) * 100).toFixed(1) : "0";
+          }
+          
+          const totalTicketsCount = allTickets.length;
+          const resolvedOrClosedCount = resolvedTickets.length;
+          const resolutionRate = totalTicketsCount > 0 ? `${Math.round((resolvedOrClosedCount / totalTicketsCount) * 100)}%` : "0%";
+          
+          // Feuille récapitulative
+          const summaryData = [
+            ["Rapport", reportName],
+            ["Date de génération", new Date().toLocaleDateString("fr-FR")],
+            ["Généré par", userInfo?.full_name || "Utilisateur"],
+            [""],
+            ["Métriques principales", ""],
+            ["Temps moyen de résolution", `${avgResolutionDays} jours`],
+            ["Taux de satisfaction utilisateur", `${satisfactionRate}%`],
+            ["Taux de résolution", resolutionRate],
+            ["Taux de réouverture", `${reopenRate}%`],
+            ["Tickets escaladés", escalatedTickets.length],
+          ];
+          const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+          XLSX.utils.book_append_sheet(
+            wb,
+            wsSummary,
+            sanitizeSheetName("Résumé")
+          );
+          
+          // Feuille Détails
+          const detailsData = [
+            ["Métrique", "Valeur"],
+            ["Tickets résolus/clôturés", resolvedTickets.length],
+            ["Tickets rejetés", rejectedTickets.length],
+            ["Tickets escaladés (critiques en cours)", escalatedTickets.length],
+            ["Tickets satisfaisants (implicite)", resolvedTickets.length],
+          ];
+          const wsDetails = XLSX.utils.aoa_to_sheet(detailsData);
+          XLSX.utils.book_append_sheet(
+            wb,
+            wsDetails,
+            sanitizeSheetName("Détails")
+          );
+        } else if (selectedReport === "agence") {
+          // Export détaillé pour Analyses par agence (adjoint)
+          const agencies = Array.from(
+            new Set(
+              allTickets
+                .map((t) => t.creator?.agency || t.user_agency)
+                .filter(Boolean)
+            )
+          );
+
+          const agencyData = agencies
+            .map((agency) => {
+              const agencyTickets = allTickets.filter(
+                (t) => (t.creator?.agency || t.user_agency) === agency
+              );
+              const resolvedAgencyTickets = agencyTickets.filter(
+                (t) => t.status === "resolu" || t.status === "cloture"
+              );
+
+              // Calculer le temps moyen de résolution (uniquement avec dates réelles)
+              let totalResolutionTime = 0;
+              let countWithDates = 0;
+
+              resolvedAgencyTickets.forEach((ticket) => {
+                if (ticket.created_at && (ticket.resolved_at || ticket.closed_at)) {
+                  const created = new Date(ticket.created_at);
+                  const resolved = ticket.resolved_at
+                    ? new Date(ticket.resolved_at)
+                    : new Date(ticket.closed_at!);
+                  const diffTime = resolved.getTime() - created.getTime();
+                  const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                  if (diffDays >= 0) {
+                    totalResolutionTime += diffDays;
+                    countWithDates++;
+                  }
+                }
+              });
+
+              const avgResolutionDays =
+                countWithDates > 0 ? totalResolutionTime / countWithDates : 0;
+              const avgResolutionDisplay =
+                countWithDates > 0
+                  ? avgResolutionDays % 1 === 0
+                    ? `${Math.round(avgResolutionDays)} jour${
+                        Math.round(avgResolutionDays) > 1 ? "s" : ""
+                      }`
+                    : `${avgResolutionDays.toFixed(1)} jours`
+                  : "N/A";
+
+              // Calculer la satisfaction
+              const ticketsWithFeedback = resolvedAgencyTickets.filter(
+                (t) =>
+                  t.feedback_score !== null &&
+                  t.feedback_score !== undefined
+              );
+              let satisfactionDisplay = "N/A";
+
+              if (ticketsWithFeedback.length > 0) {
+                const avgFeedback =
+                  ticketsWithFeedback.reduce(
+                    (sum, t) => sum + (t.feedback_score || 0),
+                    0
+                  ) / ticketsWithFeedback.length;
+                satisfactionDisplay = `${(
+                  (avgFeedback / 5) *
+                  100
+                ).toFixed(1)}%`;
+              } else if (resolvedAgencyTickets.length > 0) {
+                const rejectedAgencyTickets = agencyTickets.filter(
+                  (t) => t.status === "rejete"
+                );
+                const resolvedCount = resolvedAgencyTickets.length;
+                const rejectedCount = rejectedAgencyTickets.length;
+                const totalProcessed = resolvedCount + rejectedCount;
+                if (totalProcessed > 0) {
+                  const satisfactionRate =
+                    (resolvedCount / totalProcessed) * 100;
+                  satisfactionDisplay = `${satisfactionRate.toFixed(1)}%`;
+                }
+              }
+
+              return {
+                agence: agency,
+                nombreTickets: agencyTickets.length,
+                tempsMoyen: avgResolutionDisplay,
+                satisfaction: satisfactionDisplay,
+              };
+            })
+            .sort((a, b) => b.nombreTickets - a.nombreTickets);
+
+          const agencyTableData = [
+            ["Rapport", reportName],
+            ["Date de génération", new Date().toLocaleDateString("fr-FR")],
+            ["Généré par", userInfo?.full_name || "Utilisateur"],
+            [""],
+            ["Volume de tickets par agence"],
+            ["Agence", "Nombre de tickets", "Temps moyen", "Satisfaction"],
+          ];
+
+          agencyData.forEach((agency) => {
+            agencyTableData.push([
+              agency.agence,
+              agency.nombreTickets,
+              agency.tempsMoyen,
+              agency.satisfaction,
+            ]);
+          });
+
+          const agencyWs = XLSX.utils.aoa_to_sheet(agencyTableData);
+          XLSX.utils.book_append_sheet(
+            wb,
+            agencyWs,
+            sanitizeSheetName("Par agence")
+          );
+        } else if (selectedReport === "technicien") {
+          // Export détaillé pour Analyses par technicien (adjoint)
+          const technicianData = technicians.map((tech) => {
+            const techTickets = allTickets.filter(
+              (t) => t.technician_id === tech.id
+            );
+            const inProgress = techTickets.filter(
+              (t) =>
+                t.status === "assigne_technicien" || t.status === "en_cours"
+            ).length;
+            const resolvedTickets = techTickets.filter(
+              (t) => t.status === "resolu" || t.status === "cloture"
+            );
+
+            // Temps moyen de résolution (heures / jours)
+            let avgTimeDisplay = "N/A";
+            if (resolvedTickets.length > 0) {
+              let totalHours = 0;
+              let countWithDates = 0;
+
+              resolvedTickets.forEach((ticket) => {
+                if (ticket.created_at) {
+                  const created = new Date(ticket.created_at);
+                  let resolvedDate: Date | null = null;
+
+                  if (ticket.status === "cloture" && ticket.closed_at) {
+                    resolvedDate = new Date(ticket.closed_at);
+                  } else if (
+                    ticket.status === "resolu" &&
+                    ticket.resolved_at
+                  ) {
+                    resolvedDate = new Date(ticket.resolved_at);
+                  }
+
+                  if (resolvedDate) {
+                    const diffHours =
+                      (resolvedDate.getTime() - created.getTime()) /
+                      (1000 * 60 * 60);
+                    if (diffHours >= 0) {
+                      totalHours += diffHours;
+                      countWithDates++;
+                    }
+                  }
+                }
+              });
+
+              if (countWithDates > 0) {
+                const avgHours = totalHours / countWithDates;
+                if (avgHours < 24) {
+                  avgTimeDisplay = `${avgHours.toFixed(1)}h`;
+                } else {
+                  const avgDays = avgHours / 24;
+                  avgTimeDisplay = `${avgDays.toFixed(1)}j`;
+                }
+              }
+            }
+
+            // Satisfaction (même logique que le tableau affiché : basée sur résolus vs rejetés)
+            const techResolved = resolvedTickets.length;
+            const techRejected = techTickets.filter(
+              (t) => t.status === "rejete"
+            ).length;
+            const techDenominator = techResolved + techRejected;
+            const techSatisfaction =
+              techDenominator > 0
+                ? ((techResolved / techDenominator) * 100).toFixed(1) + "%"
+                : "0%";
+
+            return {
+              technicien: tech.full_name,
+              ticketsTraites: techResolved,
+              tempsMoyen: avgTimeDisplay,
+              chargeActuelle: inProgress,
+              satisfaction: techSatisfaction,
+            };
+          });
+
+          const techSheetData: any[][] = [
+            ["Rapport", reportName],
+            ["Date de génération", new Date().toLocaleDateString("fr-FR")],
+            ["Généré par", userInfo?.full_name || "Utilisateur"],
+            [""],
+            ["Performance des techniciens"],
+            [
+              "Technicien",
+              "Tickets traités",
+              "Temps moyen",
+              "Charge actuelle",
+              "Satisfaction",
+            ],
+          ];
+
+          technicianData.forEach((t) => {
+            techSheetData.push([
+              t.technicien,
+              t.ticketsTraites,
+              t.tempsMoyen,
+              t.chargeActuelle,
+              t.satisfaction,
+            ]);
+          });
+
+          const techWs = XLSX.utils.aoa_to_sheet(techSheetData);
+          XLSX.utils.book_append_sheet(
+            wb,
+            techWs,
+            sanitizeSheetName("Par technicien")
+          );
+        } else if (selectedReport === "evolutions") {
+          // Export détaillé pour Évolutions dans le temps (adjoint)
+          const now = new Date();
+          const lastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          const lastMonth = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          const lastMonthStart = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+
+          const ticketsThisWeek = allTickets.filter((t: any) => {
+            const createdDate = new Date(t.created_at);
+            return createdDate >= lastWeek;
+          });
+
+          const ticketsThisMonth = allTickets.filter((t: any) => {
+            const createdDate = new Date(t.created_at);
+            return createdDate >= lastMonth;
+          });
+
+          const ticketsLastMonth = allTickets.filter((t: any) => {
+            const createdDate = new Date(t.created_at);
+            return createdDate >= lastMonthStart && createdDate < lastMonth;
+          });
+
+          const trendThisWeek = ticketsThisWeek.length;
+          const trendLastMonth = ticketsLastMonth.length;
+          const trendChange =
+            trendLastMonth > 0
+              ? (((trendThisWeek - trendLastMonth) / trendLastMonth) * 100).toFixed(1)
+              : "0";
+
+          const ticketsByDay: { [key: string]: number } = {};
+          allTickets.forEach((t: any) => {
+            const date = new Date(t.created_at);
+            const dayName = date.toLocaleDateString("fr-FR", { weekday: "long" });
+            ticketsByDay[dayName] = (ticketsByDay[dayName] || 0) + 1;
+          });
+
+          const busiestDay = Object.entries(ticketsByDay).reduce(
+            (a, b) => (ticketsByDay[a[0]] > ticketsByDay[b[0]] ? a : b),
+            ["", 0] as [string, number]
+          );
+
+          // Feuille 1: Indicateurs + performance
+          const summarySheetData: any[][] = [
+            ["Rapport", reportName],
+            ["Date de génération", new Date().toLocaleDateString("fr-FR")],
+            ["Généré par", userInfo?.full_name || "Utilisateur"],
+            [""],
+            ["Indicateurs principaux", ""],
+            ["Tickets cette semaine", ticketsThisWeek.length],
+            ["Tickets ce mois", ticketsThisMonth.length],
+            ["Tendance (%)", `${parseFloat(trendChange).toFixed(1)}%`],
+            [""],
+            ["Performance par période", ""],
+            ["Période", "Tickets créés", "Tickets résolus"],
+            [
+              "Cette semaine",
+              ticketsThisWeek.length,
+              ticketsThisWeek.filter(
+                (t: any) => t.status === "resolu" || t.status === "cloture"
+              ).length,
+            ],
+            [
+              "Ce mois",
+              ticketsThisMonth.length,
+              ticketsThisMonth.filter(
+                (t: any) => t.status === "resolu" || t.status === "cloture"
+              ).length,
+            ],
+            [
+              "Mois dernier",
+              ticketsLastMonth.length,
+              ticketsLastMonth.filter(
+                (t: any) => t.status === "resolu" || t.status === "cloture"
+              ).length,
+            ],
+            [""],
+            ["Pics d'activité", ""],
+            [
+              "Jour le plus chargé",
+              busiestDay[0]
+                ? `${busiestDay[0]} (${busiestDay[1]} tickets)`
+                : "Aucune donnée",
+            ],
+          ];
+          const summaryWs = XLSX.utils.aoa_to_sheet(summarySheetData);
+          XLSX.utils.book_append_sheet(
+            wb,
+            summaryWs,
+            sanitizeSheetName("Résumé")
+          );
+
+          // Feuille 2: Répartition par jour de la semaine
+          const dayTableData: any[][] = [
+            ["Répartition par jour de la semaine"],
+            ["Jour", "Nombre de tickets"],
+          ];
+          Object.entries(ticketsByDay)
+            .sort((a, b) => b[1] - a[1])
+            .forEach(([day, count]) => {
+              dayTableData.push([day, count]);
+            });
+          const dayWs = XLSX.utils.aoa_to_sheet(dayTableData);
+          XLSX.utils.book_append_sheet(
+            wb,
+            dayWs,
+            sanitizeSheetName("Jours semaine")
+          );
+        } else {
+          // Export générique pour les autres rapports
+          const wsData = [
+            ["Rapport", reportName],
+            ["Date de génération", new Date().toLocaleDateString("fr-FR")],
+            ["Généré par", userInfo?.full_name || "Utilisateur"],
+            [""],
+            ["Note: Les données détaillées seront disponibles dans une prochaine version."],
+          ];
+          const ws = XLSX.utils.aoa_to_sheet(wsData);
+          XLSX.utils.book_append_sheet(wb, ws, sanitizeSheetName("Rapport"));
+        }
+
         // Vérifier que le workbook n'est pas vide avant d'écrire
         if (wb.SheetNames.length === 0) {
           throw new Error("Le classeur Excel est vide");
@@ -883,15 +2052,19 @@ function SecretaryDashboard({ token }: SecretaryDashboardProps) {
   const viewDetailedReport = (reportType?: string) => {
     const reportName = getReportName(reportType);
     if (selectedReport === "recurrents") {
-      // Utiliser les mêmes données que l'affichage (filtrées par agence si possible)
-      const problems = getRecurringTicketsHistoryForExport();
-      const mostFrequent = getMostFrequentProblemsForExport();
-      const problematicApps = getProblematicApplicationsForExport();
-      
-      // Si aucune donnée filtrée, utiliser les données affichées (pour éviter un rapport vide)
-      const problemsToUse = problems.length > 0 ? problems : getRecurringTicketsHistory();
-      const mostFrequentToUse = mostFrequent.length > 0 ? mostFrequent : getMostFrequentProblems();
-      const problematicAppsToUse = problematicApps.length > 0 ? problematicApps : getProblematicApplications();
+      // Utiliser exactement les mêmes données que l'affichage (adjoint)
+      const problemsToUse = getRecurringTicketsHistory();
+      const mostFrequentToUse = getMostFrequentProblems();
+      const agenciesStats = Array.from(
+        new Set(allTickets.map((t) => t.creator?.agency || t.user_agency).filter(Boolean))
+      )
+        .map((agency) => ({
+          agency,
+          count: allTickets.filter(
+            (t) => (t.creator?.agency || t.user_agency) === agency
+          ).length,
+        }))
+        .sort((a, b) => b.count - a.count);
       
       let reportContent = `RAPPORT: ${reportName}\n`;
       reportContent += `Date de génération: ${new Date().toLocaleDateString('fr-FR')}\n`;
@@ -923,18 +2096,18 @@ function SecretaryDashboard({ token }: SecretaryDashboardProps) {
       } else {
         reportContent += "Aucun problème fréquent identifié.\n\n";
       }
-      
+
       reportContent += "=".repeat(80) + "\n";
-      reportContent += "APPLICATIONS/ÉQUIPEMENTS PROBLÉMATIQUES\n";
+      reportContent += "AGENCES AVEC LE PLUS DE TICKETS\n";
       reportContent += "=".repeat(80) + "\n\n";
-      
-      if (problematicAppsToUse.length > 0) {
-        problematicAppsToUse.forEach((item, index) => {
-          reportContent += `${index + 1}. ${item.application}\n`;
-          reportContent += `   Nombre de tickets: ${item.tickets}\n\n`;
+
+      if (agenciesStats.length > 0) {
+        agenciesStats.forEach((item, index) => {
+          reportContent += `${index + 1}. ${item.agency}\n`;
+          reportContent += `   Nombre de tickets: ${item.count}\n\n`;
         });
       } else {
-        reportContent += "Aucune application ou équipement problématique identifié.\n\n";
+        reportContent += "Aucune agence trouvée.\n\n";
       }
       
       // Afficher le rapport dans une nouvelle fenêtre
@@ -4860,76 +6033,130 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
                   </div>
                   <div style={{ marginBottom: "24px" }}>
                     <h4 style={{ marginBottom: "12px", fontSize: "18px", fontWeight: "600", color: "#333" }}>Répartition par statut</h4>
-                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                      <thead>
-                        <tr style={{ background: "#f8f9fa" }}>
-                          <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #dee2e6" }}>Statut</th>
-                          <th style={{ padding: "12px", textAlign: "right", borderBottom: "1px solid #dee2e6" }}>Nombre</th>
-                          <th style={{ padding: "12px", textAlign: "right", borderBottom: "1px solid #dee2e6" }}>Pourcentage</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td style={{ padding: "12px" }}>En attente</td>
-                          <td style={{ padding: "12px", textAlign: "right" }}>{pendingTickets.length}</td>
-                          <td style={{ padding: "12px", textAlign: "right" }}>{allTickets.length > 0 ? ((pendingTickets.length / allTickets.length) * 100).toFixed(1) : 0}%</td>
-                        </tr>
-                        <tr>
-                          <td style={{ padding: "12px" }}>Assignés/En cours</td>
-                          <td style={{ padding: "12px", textAlign: "right" }}>{assignedTickets.length}</td>
-                          <td style={{ padding: "12px", textAlign: "right" }}>{allTickets.length > 0 ? ((assignedTickets.length / allTickets.length) * 100).toFixed(1) : 0}%</td>
-                        </tr>
-                        <tr>
-                          <td style={{ padding: "12px" }}>Résolus</td>
-                          <td style={{ padding: "12px", textAlign: "right" }}>{resolvedCount}</td>
-                          <td style={{ padding: "12px", textAlign: "right" }}>{allTickets.length > 0 ? ((resolvedCount / allTickets.length) * 100).toFixed(1) : 0}%</td>
-                        </tr>
-                        <tr>
-                          <td style={{ padding: "12px" }}>Clôturés</td>
-                          <td style={{ padding: "12px", textAlign: "right" }}>{allTickets.filter((t) => t.status === "cloture").length}</td>
-                          <td style={{ padding: "12px", textAlign: "right" }}>{allTickets.length > 0 ? ((allTickets.filter((t) => t.status === "cloture").length / allTickets.length) * 100).toFixed(1) : 0}%</td>
-                        </tr>
-                        <tr>
-                          <td style={{ padding: "12px" }}>Rejetés</td>
-                          <td style={{ padding: "12px", textAlign: "right" }}>{allTickets.filter((t) => t.status === "rejete").length}</td>
-                          <td style={{ padding: "12px", textAlign: "right" }}>{allTickets.length > 0 ? ((allTickets.filter((t) => t.status === "rejete").length / allTickets.length) * 100).toFixed(1) : 0}%</td>
-                        </tr>
-                      </tbody>
-                    </table>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px", alignItems: "start" }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                        <thead>
+                          <tr style={{ background: "#f8f9fa" }}>
+                            <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #dee2e6" }}>Statut</th>
+                            <th style={{ padding: "12px", textAlign: "right", borderBottom: "1px solid #dee2e6" }}>Nombre</th>
+                            <th style={{ padding: "12px", textAlign: "right", borderBottom: "1px solid #dee2e6" }}>Pourcentage</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td style={{ padding: "12px" }}>En attente</td>
+                            <td style={{ padding: "12px", textAlign: "right" }}>{pendingTickets.length}</td>
+                            <td style={{ padding: "12px", textAlign: "right" }}>{allTickets.length > 0 ? ((pendingTickets.length / allTickets.length) * 100).toFixed(1) : 0}%</td>
+                          </tr>
+                          <tr>
+                            <td style={{ padding: "12px" }}>Assignés/En cours</td>
+                            <td style={{ padding: "12px", textAlign: "right" }}>{assignedTickets.length}</td>
+                            <td style={{ padding: "12px", textAlign: "right" }}>{allTickets.length > 0 ? ((assignedTickets.length / allTickets.length) * 100).toFixed(1) : 0}%</td>
+                          </tr>
+                          <tr>
+                            <td style={{ padding: "12px" }}>Résolus</td>
+                            <td style={{ padding: "12px", textAlign: "right" }}>{resolvedCount}</td>
+                            <td style={{ padding: "12px", textAlign: "right" }}>{allTickets.length > 0 ? ((resolvedCount / allTickets.length) * 100).toFixed(1) : 0}%</td>
+                          </tr>
+                          <tr>
+                            <td style={{ padding: "12px" }}>Clôturés</td>
+                            <td style={{ padding: "12px", textAlign: "right" }}>{allTickets.filter((t) => t.status === "cloture").length}</td>
+                            <td style={{ padding: "12px", textAlign: "right" }}>{allTickets.length > 0 ? ((allTickets.filter((t) => t.status === "cloture").length / allTickets.length) * 100).toFixed(1) : 0}%</td>
+                          </tr>
+                          <tr>
+                            <td style={{ padding: "12px" }}>Rejetés</td>
+                            <td style={{ padding: "12px", textAlign: "right" }}>{allTickets.filter((t) => t.status === "rejete").length}</td>
+                            <td style={{ padding: "12px", textAlign: "right" }}>{allTickets.length > 0 ? ((allTickets.filter((t) => t.status === "rejete").length / allTickets.length) * 100).toFixed(1) : 0}%</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                      <div style={{ background: "#f8f9fa", padding: "16px", borderRadius: "8px", height: "100%" }}>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <BarChart
+                            data={[
+                              { name: "En attente", value: pendingTickets.length },
+                              { name: "Assignés/En cours", value: assignedTickets.length },
+                              { name: "Résolus", value: resolvedCount },
+                              { name: "Clôturés", value: allTickets.filter((t) => t.status === "cloture").length },
+                              { name: "Rejetés", value: allTickets.filter((t) => t.status === "rejete").length }
+                            ]}
+                            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} />
+                            <YAxis />
+                            <Tooltip />
+                            <Legend />
+                            <Bar dataKey="value" fill="#007bff" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
                   </div>
                   <div style={{ marginBottom: "24px" }}>
                     <h4 style={{ marginBottom: "12px", fontSize: "18px", fontWeight: "600", color: "#333" }}>Répartition par priorité</h4>
-                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                      <thead>
-                        <tr style={{ background: "#f8f9fa" }}>
-                          <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #dee2e6" }}>Priorité</th>
-                          <th style={{ padding: "12px", textAlign: "right", borderBottom: "1px solid #dee2e6" }}>Nombre</th>
-                          <th style={{ padding: "12px", textAlign: "right", borderBottom: "1px solid #dee2e6" }}>Pourcentage</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {["critique", "haute", "moyenne", "faible"].map((priority) => {
-                          const count = allTickets.filter((t) => t.priority === priority).length;
-                          return (
-                            <tr key={priority}>
-                              <td style={{ padding: "12px", textTransform: "capitalize" }}>{priority}</td>
-                              <td style={{ padding: "12px", textAlign: "right" }}>{count}</td>
-                              <td style={{ padding: "12px", textAlign: "right" }}>{allTickets.length > 0 ? ((count / allTickets.length) * 100).toFixed(1) : 0}%</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px", alignItems: "start" }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                        <thead>
+                          <tr style={{ background: "#f8f9fa" }}>
+                            <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #dee2e6" }}>Priorité</th>
+                            <th style={{ padding: "12px", textAlign: "right", borderBottom: "1px solid #dee2e6" }}>Nombre</th>
+                            <th style={{ padding: "12px", textAlign: "right", borderBottom: "1px solid #dee2e6" }}>Pourcentage</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {["critique", "haute", "moyenne", "faible"].map((priority) => {
+                            const count = allTickets.filter((t) => t.priority === priority).length;
+                            return (
+                              <tr key={priority}>
+                                <td style={{ padding: "12px", textTransform: "capitalize" }}>{priority}</td>
+                                <td style={{ padding: "12px", textAlign: "right" }}>{count}</td>
+                                <td style={{ padding: "12px", textAlign: "right" }}>{allTickets.length > 0 ? ((count / allTickets.length) * 100).toFixed(1) : 0}%</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                      <div style={{ background: "#f8f9fa", padding: "16px", borderRadius: "8px", height: "100%" }}>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <PieChart>
+                            <Pie
+                              data={["critique", "haute", "moyenne", "faible"].map((priority) => {
+                                const count = allTickets.filter((t) => t.priority === priority).length;
+                                return {
+                                  name: priority.charAt(0).toUpperCase() + priority.slice(1),
+                                  value: count
+                                };
+                              })}
+                              cx="50%"
+                              cy="50%"
+                              labelLine={false}
+                              label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                              outerRadius={100}
+                              fill="#8884d8"
+                              dataKey="value"
+                            >
+                              {["critique", "haute", "moyenne", "faible"].map((entry, index) => {
+                                const colors = ["#dc3545", "#ffc107", "#007bff", "#28a745"];
+                                return <Cell key={`cell-${index}`} fill={colors[index]} />;
+                              })}
+                            </Pie>
+                            <Tooltip />
+                            <Legend />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
                   </div>
                   <div style={{ display: "flex", gap: "12px", marginTop: "24px" }}>
                     <button 
-                      onClick={() => exportToPDF()}
+                      onClick={() => exportToPDF("Analyses par agence")}
                       style={{ padding: "10px 20px", backgroundColor: "#007bff", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}
                     >
                       Exporter PDF
                     </button>
                     <button 
-                      onClick={() => exportToExcel()}
+                      onClick={() => exportToExcel("Analyses par agence")}
                       style={{ padding: "10px 20px", backgroundColor: "#28a745", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}
                     >
                       Exporter Excel
@@ -4943,9 +6170,15 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
                 const resolvedTickets = allTickets.filter((t) => t.status === "resolu" || t.status === "cloture");
                 const rejectedTickets = allTickets.filter((t) => t.status === "rejete");
                 const escalatedTickets = allTickets.filter((t) => t.priority === "critique" && (t.status === "en_attente_analyse" || t.status === "assigne_technicien" || t.status === "en_cours"));
-                const reopenedTickets = rejectedTickets.filter(() => {
-                  // Tickets qui ont été rejetés puis rouverts (simplifié - on vérifie s'il y a des tickets rejetés)
-                  return true; // Pour l'instant, on compte tous les rejetés comme potentiellement rouverts
+                
+                // Calculer le taux de réouverture RÉEL : tickets qui ont été rejetés puis ont changé de statut
+                // Pour l'instant, on considère qu'un ticket est rouvert s'il n'est plus en statut "rejete"
+                // (cela signifie qu'il a été rouvert et traité à nouveau)
+                const allRejectedTicketIds = new Set(rejectedTickets.map(t => t.id));
+                const reopenedTickets = allTickets.filter((t) => {
+                  // Un ticket est rouvert s'il a été rejeté (présent dans l'historique ou dans rejectedTickets)
+                  // mais n'est plus en statut "rejete" maintenant
+                  return allRejectedTicketIds.has(t.id) && t.status !== "rejete";
                 });
                 
                 // Calculer le temps moyen de résolution RÉEL basé sur les dates
@@ -4991,32 +6224,30 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
                 const resolvedOrClosedCount = resolvedTickets.length;
                 const resolutionRate = totalTicketsCount > 0 ? `${Math.round((resolvedOrClosedCount / totalTicketsCount) * 100)}%` : "0%";
                 
-                // Taux de réouverture
-                const reopenRate = rejectedTickets.length > 0 ? ((reopenedTickets.length / rejectedTickets.length) * 100).toFixed(1) : "0";
+                // Taux de réouverture RÉEL : pourcentage de tickets rejetés qui ont été rouverts
+                // On compte tous les tickets qui ont été rejetés à un moment donné (même s'ils ne sont plus rejetés maintenant)
+                const totalRejectedEver = rejectedTickets.length + reopenedTickets.length;
+                const reopenRate = totalRejectedEver > 0 ? ((reopenedTickets.length / totalRejectedEver) * 100).toFixed(1) : "0.0";
                 
                 return (
                   <div style={{ background: "white", padding: "24px", borderRadius: "8px", boxShadow: "0 2px 4px rgba(0,0,0,0.1)" }}>
                     <h3 style={{ marginBottom: "20px", fontSize: "22px", fontWeight: "600", color: "#333" }}>Métriques de performance</h3>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "20px", marginBottom: "24px" }}>
-                      <div style={{ padding: "16px", background: "#f8f9fa", borderRadius: "8px" }}>
-                        <div style={{ fontSize: "32px", fontWeight: "bold", color: "#ff9800", marginBottom: "8px" }}>{avgResolutionDays} jours</div>
-                        <div style={{ color: "#666" }}>Temps moyen de résolution</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "16px", marginBottom: "24px" }}>
+                      <div style={{ padding: "12px", background: "#f8f9fa", borderRadius: "8px", minHeight: "100px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                        <div style={{ fontSize: "24px", fontWeight: "bold", color: "#ff9800", marginBottom: "4px" }}>{avgResolutionDays} jours</div>
+                        <div style={{ color: "#666", fontSize: "14px" }}>Temps moyen de résolution</div>
                       </div>
-                      <div style={{ padding: "16px", background: "#f8f9fa", borderRadius: "8px" }}>
-                        <div style={{ fontSize: "32px", fontWeight: "bold", color: "#4caf50", marginBottom: "8px" }}>{satisfactionRate}%</div>
-                        <div style={{ color: "#666" }}>Taux de satisfaction utilisateur</div>
+                      <div style={{ padding: "12px", background: "#f8f9fa", borderRadius: "8px", minHeight: "100px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                        <div style={{ fontSize: "24px", fontWeight: "bold", color: "#4caf50", marginBottom: "4px" }}>{satisfactionRate}%</div>
+                        <div style={{ color: "#666", fontSize: "14px" }}>Taux de satisfaction utilisateur</div>
                       </div>
-                      <div style={{ padding: "16px", background: "#f8f9fa", borderRadius: "8px" }}>
-                        <div style={{ fontSize: "32px", fontWeight: "bold", color: "#2196f3", marginBottom: "8px" }}>{resolutionRate}</div>
-                        <div style={{ color: "#666" }}>Taux de résolution</div>
+                      <div style={{ padding: "12px", background: "#f8f9fa", borderRadius: "8px", minHeight: "100px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                        <div style={{ fontSize: "24px", fontWeight: "bold", color: "#2196f3", marginBottom: "4px" }}>{resolutionRate}</div>
+                        <div style={{ color: "#666", fontSize: "14px" }}>Taux de résolution</div>
                       </div>
-                      <div style={{ padding: "16px", background: "#f8f9fa", borderRadius: "8px" }}>
-                        <div style={{ fontSize: "32px", fontWeight: "bold", color: "#dc3545", marginBottom: "8px" }}>{escalatedTickets.length}</div>
-                        <div style={{ color: "#666" }}>Tickets escaladés</div>
-                      </div>
-                      <div style={{ padding: "16px", background: "#f8f9fa", borderRadius: "8px" }}>
-                        <div style={{ fontSize: "32px", fontWeight: "bold", color: "#17a2b8", marginBottom: "8px" }}>{reopenRate}%</div>
-                        <div style={{ color: "#666" }}>Taux de réouverture</div>
+                      <div style={{ padding: "12px", background: "#f8f9fa", borderRadius: "8px", minHeight: "100px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                        <div style={{ fontSize: "24px", fontWeight: "bold", color: "#17a2b8", marginBottom: "4px" }}>{reopenRate}%</div>
+                        <div style={{ color: "#666", fontSize: "14px" }}>Taux de réouverture</div>
                       </div>
                     </div>
                     <div style={{ marginBottom: "24px" }}>
@@ -5049,8 +6280,18 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
                       </table>
                     </div>
                     <div style={{ display: "flex", gap: "12px", marginTop: "24px" }}>
-                      <button style={{ padding: "10px 20px", backgroundColor: "#007bff", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>Exporter PDF</button>
-                      <button style={{ padding: "10px 20px", backgroundColor: "#28a745", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>Exporter Excel</button>
+                      <button 
+                        onClick={() => exportToPDF("Métriques de performance")}
+                        style={{ padding: "10px 20px", backgroundColor: "#007bff", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}
+                      >
+                        Exporter PDF
+                      </button>
+                      <button 
+                        onClick={() => exportToExcel("Métriques de performance")}
+                        style={{ padding: "10px 20px", backgroundColor: "#28a745", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}
+                      >
+                        Exporter Excel
+                      </button>
                     </div>
                   </div>
                 );
@@ -5073,15 +6314,45 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
                       <tbody>
                         {Array.from(new Set(allTickets.map((t) => t.creator?.agency || t.user_agency).filter(Boolean))).map((agency) => {
                           const agencyTickets = allTickets.filter((t) => (t.creator?.agency || t.user_agency) === agency);
-                          const agencyResolved = agencyTickets.filter((t) => t.status === "resolu" || t.status === "cloture").length;
+                          const agencyResolvedTickets = agencyTickets.filter((t) => t.status === "resolu" || t.status === "cloture");
                           const agencyRejected = agencyTickets.filter((t) => t.status === "rejete").length;
-                          const agencyDenominator = agencyResolved + agencyRejected;
-                          const agencySatisfaction = agencyDenominator > 0 ? ((agencyResolved / agencyDenominator) * 100).toFixed(1) : "0";
+                          const agencyDenominator = agencyResolvedTickets.length + agencyRejected;
+                          const agencySatisfaction = agencyDenominator > 0 ? ((agencyResolvedTickets.length / agencyDenominator) * 100).toFixed(1) : "0";
+
+                          // Calcul du temps moyen de résolution réel pour l'agence
+                          let totalResolutionTime = 0;
+                          let resolvedCountWithDates = 0;
+                          agencyResolvedTickets.forEach((ticket) => {
+                            if (ticket.created_at) {
+                              let resolvedDate: Date | null = null;
+                              if (ticket.status === "cloture" && ticket.closed_at) {
+                                resolvedDate = new Date(ticket.closed_at);
+                              } else if (ticket.status === "resolu" && ticket.resolved_at) {
+                                resolvedDate = new Date(ticket.resolved_at);
+                              }
+                              if (resolvedDate) {
+                                const created = new Date(ticket.created_at);
+                                const diffDays = Math.floor((resolvedDate.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
+                                if (diffDays >= 0) {
+                                  totalResolutionTime += diffDays;
+                                  resolvedCountWithDates++;
+                                }
+                              }
+                            }
+                          });
+
+                          const agencyAvgResolutionDays =
+                            resolvedCountWithDates > 0
+                              ? Math.round(totalResolutionTime / resolvedCountWithDates)
+                              : null;
+
                           return (
                             <tr key={agency}>
                               <td style={{ padding: "12px" }}>{agency}</td>
                               <td style={{ padding: "12px", textAlign: "right" }}>{agencyTickets.length}</td>
-                              <td style={{ padding: "12px", textAlign: "right" }}>N/A</td>
+                              <td style={{ padding: "12px", textAlign: "right" }}>
+                                {agencyAvgResolutionDays !== null ? `${agencyAvgResolutionDays} j` : "N/A"}
+                              </td>
                               <td style={{ padding: "12px", textAlign: "right" }}>{agencySatisfaction}%</td>
                             </tr>
                           );
@@ -5124,16 +6395,62 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
                       <tbody>
                         {technicians.map((tech) => {
                           const techTickets = allTickets.filter((t) => t.technician_id === tech.id);
-                          const inProgress = techTickets.filter((t) => t.status === "assigne_technicien" || t.status === "en_cours").length;
-                          const techResolved = techTickets.filter((t) => t.status === "resolu" || t.status === "cloture").length;
+                          const inProgress = techTickets.filter(
+                            (t) => t.status === "assigne_technicien" || t.status === "en_cours"
+                          ).length;
+                          const resolvedTickets = techTickets.filter(
+                            (t) => t.status === "resolu" || t.status === "cloture"
+                          );
+                          const techResolved = resolvedTickets.length;
                           const techRejected = techTickets.filter((t) => t.status === "rejete").length;
                           const techDenominator = techResolved + techRejected;
-                          const techSatisfaction = techDenominator > 0 ? ((techResolved / techDenominator) * 100).toFixed(1) : "0";
+                          const techSatisfaction =
+                            techDenominator > 0 ? ((techResolved / techDenominator) * 100).toFixed(1) : "0";
+
+                          // Calcul du temps moyen de résolution réel pour ce technicien
+                          let avgTimeDisplay = "N/A";
+                          if (resolvedTickets.length > 0) {
+                            let totalHours = 0;
+                            let countWithDates = 0;
+
+                            resolvedTickets.forEach((ticket) => {
+                              if (ticket.created_at) {
+                                const created = new Date(ticket.created_at);
+                                let resolvedDate: Date | null = null;
+
+                                if (ticket.status === "cloture" && ticket.closed_at) {
+                                  resolvedDate = new Date(ticket.closed_at);
+                                } else if (ticket.status === "resolu" && ticket.resolved_at) {
+                                  resolvedDate = new Date(ticket.resolved_at);
+                                }
+
+                                if (resolvedDate) {
+                                  const diffHours =
+                                    (resolvedDate.getTime() - created.getTime()) / (1000 * 60 * 60);
+                                  if (diffHours >= 0) {
+                                    totalHours += diffHours;
+                                    countWithDates++;
+                                  }
+                                }
+                              }
+                            });
+
+                            if (countWithDates > 0) {
+                              const avgHours = totalHours / countWithDates;
+                              if (avgHours < 24) {
+                                avgTimeDisplay = `${avgHours.toFixed(1)} h`;
+                              } else {
+                                const avgDays = avgHours / 24;
+                                avgTimeDisplay = `${avgDays.toFixed(1)} j`;
+                              }
+                            }
+                          }
+
                           return (
                             <tr key={tech.id}>
                               <td style={{ padding: "12px" }}>{tech.full_name}</td>
                               <td style={{ padding: "12px", textAlign: "right" }}>{techResolved}</td>
-                              <td style={{ padding: "12px", textAlign: "right" }}>N/A</td>
+                              <td style={{ padding: "12px", textAlign: "right" }}>{avgTimeDisplay}</td>
                               <td style={{ padding: "12px", textAlign: "right" }}>{inProgress}</td>
                               <td style={{ padding: "12px", textAlign: "right" }}>{techSatisfaction}%</td>
                             </tr>
@@ -5293,8 +6610,18 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
                     </div>
                     
                     <div style={{ display: "flex", gap: "12px", marginTop: "24px" }}>
-                      <button style={{ padding: "10px 20px", backgroundColor: "#007bff", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>Exporter PDF</button>
-                      <button style={{ padding: "10px 20px", backgroundColor: "#28a745", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>Exporter Excel</button>
+                      <button 
+                        onClick={() => exportToPDF()}
+                        style={{ padding: "10px 20px", backgroundColor: "#007bff", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}
+                      >
+                        Exporter PDF
+                      </button>
+                      <button 
+                        onClick={() => exportToExcel()}
+                        style={{ padding: "10px 20px", backgroundColor: "#28a745", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}
+                      >
+                        Exporter Excel
+                      </button>
                     </div>
                   </div>
                 );

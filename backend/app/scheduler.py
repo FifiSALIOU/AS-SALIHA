@@ -234,3 +234,4 @@ def run_scheduled_tasks():
     auto_close_unvalidated_tickets()
     print(f"[{datetime.utcnow()}] Tâches planifiées terminées")
 
+
