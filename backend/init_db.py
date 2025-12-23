@@ -5,6 +5,7 @@ Crée les tables et les rôles par défaut
 from app.database import Base, engine, SessionLocal
 from app import models
 from app.security import get_password_hash
+from sqlalchemy import text
 
 def init_roles(db):
     """Crée les rôles par défaut"""
@@ -71,6 +72,56 @@ def init_admin_user(db):
     else:
         print("-> Utilisateur admin existe deja")
 
+
+def init_ticket_types_and_categories(db):
+    """
+    Initialise les types et catégories de tickets par défaut si les tables sont vides.
+    Ces données pourront ensuite être modifiées directement dans la base.
+    """
+    # Types de tickets
+    existing_types = db.query(models.TicketTypeModel).count()
+    if existing_types == 0:
+        default_types = [
+            {"code": "materiel", "label": "Matériel"},
+            {"code": "applicatif", "label": "Applicatif"},
+        ]
+        for t in default_types:
+            db.add(models.TicketTypeModel(**t))
+        db.commit()
+        print("OK - Types de tickets par défaut créés")
+
+    # Catégories de tickets
+    existing_categories = db.query(models.TicketCategory).count()
+    if existing_categories == 0:
+        default_categories = [
+            # Matériel
+            {"name": "Ordinateur portable", "description": None, "type_code": "materiel"},
+            {"name": "Ordinateur de bureau", "description": None, "type_code": "materiel"},
+            {"name": "Imprimante", "description": None, "type_code": "materiel"},
+            {"name": "Scanner", "description": None, "type_code": "materiel"},
+            {"name": "Écran/Moniteur", "description": None, "type_code": "materiel"},
+            {"name": "Clavier/Souris", "description": None, "type_code": "materiel"},
+            {"name": "Réseau (Switch, Routeur)", "description": None, "type_code": "materiel"},
+            {"name": "Serveur", "description": None, "type_code": "materiel"},
+            {"name": "Téléphone/IP Phone", "description": None, "type_code": "materiel"},
+            {"name": "Autre matériel", "description": None, "type_code": "materiel"},
+            # Applicatif
+            {"name": "Système d'exploitation", "description": None, "type_code": "applicatif"},
+            {"name": "Logiciel bureautique", "description": None, "type_code": "applicatif"},
+            {"name": "Application métier", "description": None, "type_code": "applicatif"},
+            {"name": "Email/Messagerie", "description": None, "type_code": "applicatif"},
+            {"name": "Navigateur web", "description": None, "type_code": "applicatif"},
+            {"name": "Base de données", "description": None, "type_code": "applicatif"},
+            {"name": "Sécurité/Antivirus", "description": None, "type_code": "applicatif"},
+            {"name": "Application web", "description": None, "type_code": "applicatif"},
+            {"name": "API/Service", "description": None, "type_code": "applicatif"},
+            {"name": "Autre applicatif", "description": None, "type_code": "applicatif"},
+        ]
+        for c in default_categories:
+            db.add(models.TicketCategory(**c))
+        db.commit()
+        print("OK - Catégories de tickets par défaut créées")
+
 def main():
     print("Initialisation de la base de donnees...")
     print("-" * 50)
@@ -79,6 +130,25 @@ def main():
     print("\nCreation des tables...")
     Base.metadata.create_all(bind=engine)
     print("OK - Tables creees")
+
+    # S'assurer que la table ticket_categories possède bien la colonne type_code
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "ALTER TABLE ticket_categories "
+                    "ADD COLUMN IF NOT EXISTS type_code VARCHAR(50) "
+                    "DEFAULT 'materiel' NOT NULL"
+                )
+            )
+            conn.execute(
+                text(
+                    "ALTER TABLE ticket_categories "
+                    "ALTER COLUMN type_code DROP DEFAULT"
+                )
+            )
+    except Exception as e:
+        print(f"Attention: impossible de vérifier/ajouter la colonne type_code sur ticket_categories: {e}")
     
     # Initialiser les rôles
     print("\nCreation des roles...")
@@ -86,6 +156,7 @@ def main():
     try:
         init_roles(db)
         init_admin_user(db)
+        init_ticket_types_and_categories(db)
     finally:
         db.close()
     

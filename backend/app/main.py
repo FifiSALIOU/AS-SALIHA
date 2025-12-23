@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from .routers import auth, tickets, users, notifications, settings
+from .routers import auth, tickets, users, notifications, settings, ticket_config
 from .scheduler import run_scheduled_tasks
 
 
@@ -31,6 +31,7 @@ def create_app() -> FastAPI:
     app.include_router(users.router, prefix="/users", tags=["users"])
     app.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
     app.include_router(settings.router, tags=["settings"])
+    app.include_router(ticket_config.router)
 
     # Configurer le scheduler pour exécuter les tâches planifiées
     scheduler = BackgroundScheduler()

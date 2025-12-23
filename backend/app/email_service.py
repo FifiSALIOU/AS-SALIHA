@@ -189,31 +189,15 @@ Cordialement,
 """
         # Les liens pointent vers /login avec redirection pour forcer l'authentification
         if recipient_role == "DSI":
-            # DSI reçoit 3 boutons : Assigner, Déléguer, et Ouvrir l'application
-            assign_params = urlencode({
-                "redirect": "/dashboard/dsi",
-                "ticket": ticket_id,
-                "action": "assign"
-            })
-            delegate_params = urlencode({
-                "redirect": "/dashboard/dsi",
-                "ticket": ticket_id,
-                "action": "delegate"
-            })
-            app_params = urlencode({
+            # Pour le DSI : plus de boutons d'action, seulement une phrase avec lien vers l'application
+            login_params = urlencode({
                 "redirect": "/dashboard/dsi"
             })
-            
-            assign_link = f"{self.app_base_url}/login?{assign_params}"
-            delegate_link = f"{self.app_base_url}/login?{delegate_params}"
-            app_link = f"{self.app_base_url}/login?{app_params}"
-            
+            login_link = f"{self.app_base_url}/login?{login_params}"
             actions_html = f"""
-            <div style="margin: 20px 0; display:flex; gap:10px; flex-wrap:wrap;">
-                <a href="{assign_link}" style="background:#007bff;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;display:inline-block">Assigner à un technicien</a>
-                <a href="{delegate_link}" style="background:#0ea5e9;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;display:inline-block">Déléguer à un adjoint</a>
-                <a href="{app_link}" style="background:#6c757d;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;display:inline-block">Ouvrir l'application</a>
-            </div>
+            <p>Veuillez vous connecter à l'application en cliquant sur ce lien afin d'analyser et d'assigner ce ticket :
+                <a href="{login_link}" style="color:#007bff;text-decoration:underline;">Accéder à l'application</a>.
+            </p>
             """
         else:
             # Secrétaire DSI, Adjoint DSI et Admin : seulement le bouton "Assigner à un technicien"
@@ -338,10 +322,10 @@ Cordialement,
         
         html_body += f"""
     </div>
-    <div style="margin: 20px 0;">
-        <a href="{action_link}" style="background:#007bff;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;display:inline-block">Résoudre le Ticket</a>
-    </div>
-    <p>Veuillez vous connecter à l'application pour prendre en charge ce ticket.</p>
+    <p>
+        Veuillez vous connecter à l'application en cliquant sur ce lien afin de prendre en charge et de résoudre ce ticket :
+        <a href="{action_link}" style="color:#007bff;text-decoration:underline;">Accéder à l'application</a>.
+    </p>
     <p>Cordialement,<br>{self.sender_name}</p>
 </body>
 </html>
@@ -411,9 +395,10 @@ Cordialement,
         </ul>
     </div>
     <p>Vous serez notifié lorsque le ticket sera résolu.</p>
-    <div style="margin: 20px 0;">
-        <a href="{action_link}" style="background:#007bff;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;display:inline-block">Voir le ticket</a>
-    </div>
+    <p>
+        Pour suivre l'avancement de votre demande, veuillez vous connecter à l'application en cliquant sur ce lien :
+        <a href="{action_link}" style="color:#007bff;text-decoration:underline;">Accéder à l'application</a>.
+    </p>
     <p>Cordialement,<br>{self.sender_name}</p>
 </body>
 </html>
@@ -479,9 +464,10 @@ Cordialement,
         </ul>
     </div>
     <p>Vous serez notifié lorsque le ticket sera assigné à un technicien.</p>
-    <div style="margin: 20px 0;">
-        <a href="{action_link}" style="background:#007bff;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;display:inline-block">Voir le ticket</a>
-    </div>
+    <p>
+        Pour consulter le détail de votre demande et suivre son traitement, veuillez vous connecter à l'application en cliquant sur ce lien :
+        <a href="{action_link}" style="color:#007bff;text-decoration:underline;">Accéder à l'application</a>.
+    </p>
     <p>Cordialement,<br>{self.sender_name}</p>
 </body>
 </html>
@@ -677,9 +663,10 @@ Cordialement,
         </ul>
     </div>
     <p>Vous serez notifié lorsque le ticket sera résolu.</p>
-    <div style="margin: 20px 0;">
-        <a href="{action_link}" style="background:#007bff;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;display:inline-block">Voir le ticket</a>
-    </div>
+    <p>
+        Pour suivre l'avancement de votre demande, veuillez vous connecter à l'application en cliquant sur ce lien :
+        <a href="{action_link}" style="color:#007bff;text-decoration:underline;">Accéder à l'application</a>.
+    </p>
     <p>Cordialement,<br>{self.sender_name}</p>
 </body>
 </html>

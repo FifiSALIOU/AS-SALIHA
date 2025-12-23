@@ -16,6 +16,7 @@ interface UserRead {
   email: string;
   agency?: string | null;
   availability_status?: string | null;
+  status?: string | null;
 }
 
 interface TechnicianDashboardProps {
@@ -77,9 +78,7 @@ function TechnicianDashboard({ token }: TechnicianDashboardProps) {
   const [ticketDetails, setTicketDetails] = useState<Ticket | null>(null);
   const [ticketHistory, setTicketHistory] = useState<TicketHistory[]>([]);
   const [activeSection, setActiveSection] = useState<string>("dashboard");
-  const [availabilityStatus, setAvailabilityStatus] = useState<string>("disponible");
   const [rejectionReasons, setRejectionReasons] = useState<Record<string, string>>({});
-  const [updatingStatus, setUpdatingStatus] = useState<boolean>(false);
   const [resumedFlags, setResumedFlags] = useState<Record<string, boolean>>({});
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -176,37 +175,7 @@ function TechnicianDashboard({ token }: TechnicianDashboardProps) {
     window.location.href = "/";
   }
 
-  async function updateAvailabilityStatus(newStatus: string) {
-    if (!token || updatingStatus) return;
-    
-    setUpdatingStatus(true);
-    try {
-      const res = await fetch("http://localhost:8000/users/me/availability-status", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          availability_status: newStatus
-        }),
-      });
-
-      if (res.ok) {
-        setAvailabilityStatus(newStatus);
-        setUserInfo(prev => prev ? { ...prev, availability_status: newStatus } : null);
-        alert("Statut de disponibilité mis à jour avec succès");
-      } else {
-        const error = await res.json();
-        alert(`Erreur: ${error.detail || "Impossible de mettre à jour le statut"}`);
-      }
-    } catch (err) {
-      console.error("Erreur mise à jour statut:", err);
-      alert("Erreur lors de la mise à jour du statut");
-    } finally {
-      setUpdatingStatus(false);
-    }
-  }
+  // La disponibilité du technicien est désormais déterminée côté DSI via le statut global de l'utilisateur.
 
   useEffect(() => {
     async function loadTickets() {
@@ -240,9 +209,6 @@ function TechnicianDashboard({ token }: TechnicianDashboardProps) {
             agency: meData.agency,
             availability_status: meData.availability_status
           });
-          if (meData.availability_status) {
-            setAvailabilityStatus(meData.availability_status);
-          }
         }
       } catch (err) {
         console.error("Erreur chargement infos utilisateur:", err);
@@ -815,6 +781,28 @@ function TechnicianDashboard({ token }: TechnicianDashboardProps) {
           </div>
           <div>Tableau de Bord</div>
         </div>
+        {/* Tickets en cours */}
+        <div 
+          onClick={() => setActiveSection("tickets-en-cours")}
+          style={{ 
+            display: "flex", 
+            alignItems: "center", 
+            gap: "12px", 
+            padding: "12px", 
+            background: activeSection === "tickets-en-cours" ? "rgba(255,255,255,0.1)" : "transparent", 
+            borderRadius: "8px",
+            cursor: "pointer",
+            transition: "background 0.2s"
+          }}
+        >
+          <div style={{ width: "24px", height: "24px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="9" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+          </div>
+          <div>Tickets en cours</div>
+        </div>
         <div 
           onClick={() => setActiveSection("tickets-resolus")}
           style={{ 
@@ -996,40 +984,18 @@ function TechnicianDashboard({ token }: TechnicianDashboardProps) {
             <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
               {/* Message de bienvenue */}
               {userInfo && (
-                <span style={{ 
-                  color: "white", 
-                  fontSize: "14px", 
-                  fontWeight: "400",
-                  fontFamily: "system-ui, -apple-system, sans-serif",
-                  marginRight: "8px"
-                }}>
+                <span
+                  style={{
+                    color: "white",
+                    fontSize: "14px",
+                    fontWeight: "400",
+                    fontFamily: "system-ui, -apple-system, sans-serif",
+                    marginRight: "8px",
+                  }}
+                >
                   Bienvenue Dans Votre Espace Technicien, {userInfo.full_name.toUpperCase()}
                 </span>
               )}
-
-              {/* Statut technicien */}
-              <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "white", fontSize: "13px" }}>
-                <span>Statut :</span>
-                <select
-                  value={availabilityStatus}
-                  onChange={(e) => updateAvailabilityStatus(e.target.value)}
-                  disabled={updatingStatus}
-                  style={{
-                    padding: "4px 10px",
-                    borderRadius: "999px",
-                    border: "1px solid rgba(148, 163, 184, 0.6)",
-                    background: "rgba(15, 23, 42, 0.9)",
-                    color: "white",
-                    fontSize: "13px",
-                    outline: "none",
-                    cursor: updatingStatus ? "not-allowed" : "pointer"
-                  }}
-                >
-                  <option value="disponible">Disponible</option>
-                  <option value="occupé">Occupé</option>
-                  <option value="en pause">En pause</option>
-                </select>
-              </div>
 
               {/* Icône boîte de réception - tickets à résoudre */}
               <div
@@ -1840,6 +1806,106 @@ function TechnicianDashboard({ token }: TechnicianDashboardProps) {
                   </tbody>
                 </table>
               </>
+            )}
+
+            {/* Section Tickets en cours */}
+            {activeSection === "tickets-en-cours" && (
+              <div>
+                <h2 style={{ marginBottom: "24px" }}>Tickets en cours</h2>
+                <div style={{ 
+                  background: "white", 
+                  borderRadius: "8px", 
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                  overflow: "hidden"
+                }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr style={{ background: "#f8f9fa", borderBottom: "2px solid #dee2e6" }}>
+                        <th style={{ padding: "12px 16px", textAlign: "left", fontWeight: "600", color: "#333" }}>ID</th>
+                        <th style={{ padding: "12px 16px", textAlign: "left", fontWeight: "600", color: "#333" }}>Titre</th>
+                        <th style={{ padding: "12px 16px", textAlign: "left", fontWeight: "600", color: "#333" }}>Statut</th>
+                        <th style={{ padding: "12px 16px", textAlign: "left", fontWeight: "600", color: "#333" }}>Priorité</th>
+                        <th style={{ padding: "12px 16px", textAlign: "left", fontWeight: "600", color: "#333" }}>Type</th>
+                        <th style={{ padding: "12px 16px", textAlign: "left", fontWeight: "600", color: "#333" }}>Assigné le</th>
+                        <th style={{ padding: "12px 16px", textAlign: "left", fontWeight: "600", color: "#333" }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {inProgressTickets.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} style={{ textAlign: "center", padding: "40px", color: "#999" }}>
+                            Aucun ticket en cours de traitement
+                          </td>
+                        </tr>
+                      ) : (
+                        inProgressTickets.map((t) => (
+                          <tr key={t.id} style={{ borderBottom: "1px solid #dee2e6" }}>
+                            <td style={{ padding: "12px 16px" }}>#{t.number}</td>
+                            <td style={{ padding: "12px 16px" }}>{t.title}</td>
+                            <td style={{ padding: "12px 16px" }}>
+                              <span style={{
+                                padding: "4px 8px",
+                                borderRadius: "4px",
+                                fontSize: "12px",
+                                fontWeight: "500",
+                                background: "#fff3cd",
+                                color: "#856404",
+                                whiteSpace: "nowrap",
+                                display: "inline-block"
+                              }}>
+                                En cours de traitement
+                              </span>
+                            </td>
+                            <td style={{ padding: "12px 16px" }}>
+                              <span style={{
+                                padding: "4px 8px",
+                                borderRadius: "4px",
+                                fontSize: "12px",
+                                fontWeight: "500",
+                                background: t.priority === "critique" ? "#fee2e2" : t.priority === "haute" ? "#fed7aa" : t.priority === "moyenne" ? "#dbeafe" : t.priority === "faible" ? "#fee2e2" : "#e5e7eb",
+                                color: t.priority === "critique" ? "#991b1b" : t.priority === "haute" ? "#92400e" : t.priority === "moyenne" ? "#1e40af" : t.priority === "faible" ? "#991b1b" : "#374151"
+                              }}>
+                                {t.priority}
+                              </span>
+                            </td>
+                            <td style={{ padding: "12px 16px" }}>
+                              <span style={{
+                                padding: "4px 8px",
+                                borderRadius: "4px",
+                                fontSize: "12px",
+                                background: "#e3f2fd",
+                                color: "#1976d2"
+                              }}>
+                                {t.type === "materiel" ? "Matériel" : "Applicatif"}
+                              </span>
+                            </td>
+                            <td style={{ padding: "12px 16px", color: "#666" }}>
+                              {t.assigned_at ? new Date(t.assigned_at).toLocaleString("fr-FR") : "N/A"}
+                            </td>
+                            <td style={{ padding: "12px 16px" }}>
+                              <button
+                                onClick={() => loadTicketDetails(t.id)}
+                                disabled={loading}
+                                style={{ 
+                                  fontSize: "12px", 
+                                  padding: "6px 12px", 
+                                  backgroundColor: "#2563eb", 
+                                  color: "white", 
+                                  border: "none", 
+                                  borderRadius: "4px", 
+                                  cursor: "pointer" 
+                                }}
+                              >
+                                Détails
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             )}
 
             {activeSection === "tickets-resolus" && (

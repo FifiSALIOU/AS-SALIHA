@@ -36,6 +36,9 @@ interface TicketHistory {
   user_id: string;
   reason?: string | null;
   changed_at: string;
+  user?: {
+    full_name: string;
+  } | null;
 }
 
 interface Notification {
@@ -57,34 +60,18 @@ function UserDashboard({ token: tokenProp }: UserDashboardProps) {
     return storedToken || "";
   });
   
-  // NOTE: Ces catégories sont des exemples. Elles peuvent être facilement remplacées 
-  // par de vraies données provenant d'une API ou d'une base de données.
-  // Pour modifier ces catégories, remplacez simplement les tableaux ci-dessous.
-  const CATEGORIES_MATERIEL = [
-    "Ordinateur portable",
-    "Ordinateur de bureau",
-    "Imprimante",
-    "Scanner",
-    "Écran/Moniteur",
-    "Clavier/Souris",
-    "Réseau (Switch, Routeur)",
-    "Serveur",
-    "Téléphone/IP Phone",
-    "Autre matériel"
-  ];
-  
-  const CATEGORIES_APPLICATIF = [
-    "Système d'exploitation",
-    "Logiciel bureautique",
-    "Application métier",
-    "Email/Messagerie",
-    "Navigateur web",
-    "Base de données",
-    "Sécurité/Antivirus",
-    "Application web",
-    "API/Service",
-    "Autre applicatif"
-  ];
+  interface TicketTypeConfig {
+    id: string;
+    code: string;
+    label: string;
+  }
+
+  interface TicketCategoryConfig {
+    id: string;
+    name: string;
+    description?: string | null;
+    type_code: string;
+  }
   
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [title, setTitle] = useState("");
@@ -120,6 +107,8 @@ function UserDashboard({ token: tokenProp }: UserDashboardProps) {
   const [resumedFlags, setResumedFlags] = useState<Record<string, boolean>>({});
   const [confirmDeleteTicket, setConfirmDeleteTicket] = useState<Ticket | null>(null);
   const [openActionsMenuFor, setOpenActionsMenuFor] = useState<string | null>(null);
+  const [ticketTypes, setTicketTypes] = useState<TicketTypeConfig[]>([]);
+  const [ticketCategories, setTicketCategories] = useState<TicketCategoryConfig[]>([]);
   
   // Mettre à jour le token si le prop change
   useEffect(() => {
@@ -135,6 +124,48 @@ function UserDashboard({ token: tokenProp }: UserDashboardProps) {
       }
     }
   }, [tokenProp]);
+
+  // Charger les types et catégories de tickets depuis l'API
+  useEffect(() => {
+    async function loadTicketConfig() {
+      try {
+        const tokenToUse = actualToken || localStorage.getItem("token") || "";
+        if (!tokenToUse || tokenToUse.trim() === "") {
+          return;
+        }
+
+        const [typesRes, categoriesRes] = await Promise.all([
+          fetch("http://localhost:8000/ticket-config/types", {
+            headers: { Authorization: `Bearer ${tokenToUse}` },
+          }),
+          fetch("http://localhost:8000/ticket-config/categories", {
+            headers: { Authorization: `Bearer ${tokenToUse}` },
+          }),
+        ]);
+
+        if (typesRes.ok) {
+          const typesData = await typesRes.json();
+          setTicketTypes(typesData);
+          // Si aucun type sélectionné, prendre le premier type actif
+          if (!type && typesData.length > 0) {
+            setType(typesData[0].code);
+          }
+          if (!editType && typesData.length > 0) {
+            setEditType(typesData[0].code);
+          }
+        }
+
+        if (categoriesRes.ok) {
+          const categoriesData = await categoriesRes.json();
+          setTicketCategories(categoriesData);
+        }
+      } catch (err) {
+        console.error("Erreur lors du chargement des types/catégories:", err);
+      }
+    }
+
+    void loadTicketConfig();
+  }, [actualToken]);
 
   async function loadTickets() {
     let tokenToUse = actualToken;
@@ -2205,18 +2236,36 @@ function UserDashboard({ token: tokenProp }: UserDashboardProps) {
               </div>
               <div style={{ marginBottom: "16px" }}>
                 <label style={{ display: "block", marginBottom: "4px", fontWeight: "500" }}>Type</label>
-                <select value={editType} onChange={(e) => { setEditType(e.target.value); setEditCategory(""); }} style={{ width: "100%", padding: "10px", border: "1px solid #ddd", borderRadius: "4px" }}>
-                  <option value="materiel">Matériel</option>
-                  <option value="applicatif">Applicatif</option>
+                <select
+                  value={editType}
+                  onChange={(e) => {
+                    setEditType(e.target.value);
+                    setEditCategory("");
+                  }}
+                  style={{ width: "100%", padding: "10px", border: "1px solid #ddd", borderRadius: "4px" }}
+                >
+                  {ticketTypes.map((t) => (
+                    <option key={t.id} value={t.code}>
+                      {t.label}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div style={{ marginBottom: "16px" }}>
                 <label style={{ display: "block", marginBottom: "4px", fontWeight: "500" }}>Catégorie</label>
-                <select value={editCategory} onChange={(e) => setEditCategory(e.target.value)} style={{ width: "100%", padding: "10px", border: "1px solid #ddd", borderRadius: "4px" }}>
+                <select
+                  value={editCategory}
+                  onChange={(e) => setEditCategory(e.target.value)}
+                  style={{ width: "100%", padding: "10px", border: "1px solid #ddd", borderRadius: "4px" }}
+                >
                   <option value="">Sélectionner une catégorie...</option>
-                  {(editType === "materiel" ? CATEGORIES_MATERIEL : CATEGORIES_APPLICATIF).map((cat) => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
+                  {ticketCategories
+                    .filter((c) => c.type_code === editType)
+                    .map((cat) => (
+                      <option key={cat.id} value={cat.name}>
+                        {cat.name}
+                      </option>
+                    ))}
                 </select>
               </div>
               <div style={{ marginBottom: "16px" }}>
@@ -2442,8 +2491,11 @@ function UserDashboard({ token: tokenProp }: UserDashboardProps) {
             }}
             style={{ width: "100%", padding: "10px", border: "1px solid #ddd", borderRadius: "4px" }}
           >
-            <option value="materiel">Matériel</option>
-            <option value="applicatif">Applicatif</option>
+            {ticketTypes.map((t) => (
+              <option key={t.id} value={t.code}>
+                {t.label}
+              </option>
+            ))}
           </select>
         </div>
         <div style={{ marginBottom: "16px" }}>
@@ -2455,11 +2507,13 @@ function UserDashboard({ token: tokenProp }: UserDashboardProps) {
             style={{ width: "100%", padding: "10px", border: "1px solid #ddd", borderRadius: "4px" }}
           >
             <option value="">Sélectionner une catégorie...</option>
-            {(type === "materiel" ? CATEGORIES_MATERIEL : CATEGORIES_APPLICATIF).map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
-            ))}
+            {ticketCategories
+              .filter((c) => c.type_code === type)
+              .map((cat) => (
+                <option key={cat.id} value={cat.name}>
+                  {cat.name}
+                </option>
+              ))}
           </select>
         </div>
         <div style={{ marginBottom: "16px" }}>

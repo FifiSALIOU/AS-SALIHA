@@ -111,116 +111,17 @@ interface UserRead {
 function DSIDashboard({ token }: DSIDashboardProps) {
   const [searchParams] = useSearchParams();
   
-  // Fonction pour déterminer le statut de disponibilité basé sur les horaires de travail
+  // Déterminer le statut simple Actif / Inactif à partir du statut en base
   function getAvailabilityStatus(tech: Technician): string {
-    // Si pas d'horaires définis, utiliser le statut de la base de données
-    if (!tech.work_hours || tech.work_hours.trim() === "") {
-      return tech.availability_status || "disponible";
-    }
-
-    const now = currentTime;
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-    const currentTimeMinutes = currentHour * 60 + currentMinute; // Convertir en minutes depuis minuit
-
-    // Parser les horaires
-    // Formats supportés: "08:30-12:30 / 14:00-17:30", "9h-18h", "09:00-18:00"
-    const workHours = tech.work_hours.trim();
-    
-    // Normaliser le format (remplacer "h" par ":00")
-    const normalized = workHours.replace(/(\d+)h/g, "$1:00");
-    
-    // Séparer les plages horaires
-    const ranges = normalized.split("/").map(r => r.trim());
-    
-    let isInWorkTime = false;
-    let isInBreakTime = false;
-    
-    // Si une seule plage (ex: "09:00-18:00")
-    if (ranges.length === 1) {
-      const range = ranges[0];
-      const match = range.match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);
-      if (match) {
-        const startHour = parseInt(match[1]);
-        const startMin = parseInt(match[2]);
-        const endHour = parseInt(match[3]);
-        const endMin = parseInt(match[4]);
-        const startTime = startHour * 60 + startMin;
-        const endTime = endHour * 60 + endMin;
-        
-        isInWorkTime = currentTimeMinutes >= startTime && currentTimeMinutes <= endTime;
-      }
-    } 
-    // Si deux plages (ex: "08:30-12:30 / 14:00-17:30")
-    else if (ranges.length === 2) {
-      const morningRange = ranges[0];
-      const afternoonRange = ranges[1];
-      
-      // Parser la plage du matin
-      const morningMatch = morningRange.match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);
-      if (morningMatch) {
-        const startHour = parseInt(morningMatch[1]);
-        const startMin = parseInt(morningMatch[2]);
-        const endHour = parseInt(morningMatch[3]);
-        const endMin = parseInt(morningMatch[4]);
-        const startTime = startHour * 60 + startMin;
-        const endTime = endHour * 60 + endMin;
-        
-        if (currentTimeMinutes >= startTime && currentTimeMinutes <= endTime) {
-          isInWorkTime = true;
-        }
-      }
-      
-      // Parser la plage de l'après-midi
-      const afternoonMatch = afternoonRange.match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);
-      if (afternoonMatch) {
-        const startHour = parseInt(afternoonMatch[1]);
-        const startMin = parseInt(afternoonMatch[2]);
-        const endHour = parseInt(afternoonMatch[3]);
-        const endMin = parseInt(afternoonMatch[4]);
-        const startTime = startHour * 60 + startMin;
-        const endTime = endHour * 60 + endMin;
-        
-        if (currentTimeMinutes >= startTime && currentTimeMinutes <= endTime) {
-          isInWorkTime = true;
-        }
-      }
-      
-      // Déterminer si on est dans la pause (entre les deux plages)
-      if (morningMatch && afternoonMatch) {
-        const morningEndHour = parseInt(morningMatch[3]);
-        const morningEndMin = parseInt(morningMatch[4]);
-        const afternoonStartHour = parseInt(afternoonMatch[1]);
-        const afternoonStartMin = parseInt(afternoonMatch[2]);
-        const morningEndTime = morningEndHour * 60 + morningEndMin;
-        const afternoonStartTime = afternoonStartHour * 60 + afternoonStartMin;
-        
-        if (currentTimeMinutes > morningEndTime && currentTimeMinutes < afternoonStartTime) {
-          isInBreakTime = true;
-        }
-      }
-    }
-    
-    // PRIORITÉ 1 : Si on est dans la pause horaire automatique, retourner "en pause"
-    // (cela a la priorité la plus haute, même si le technicien s'est marqué "Disponible")
-    if (isInBreakTime) {
-      return "en pause";
-    }
-    
-    // PRIORITÉ 2 : Si on est en dehors des heures de travail, forcer "indisponible"
-    if (!isInWorkTime) {
-      return "indisponible";
-    }
-    
-    // PRIORITÉ 3 : Si on est dans les heures de travail, utiliser le statut manuel du technicien
-    // (disponible, occupé, ou en pause selon ce qu'il a choisi)
-    return tech.availability_status || "disponible";
+    const rawStatus = (tech.status || "").toLowerCase();
+    // On considère "actif" ou "active" comme actif, tout le reste comme inactif
+    const isActive = rawStatus === "actif" || rawStatus === "active";
+    return isActive ? "actif" : "inactif";
   }
 
   const [allTickets, setAllTickets] = useState<Ticket[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [selectedTechnician, setSelectedTechnician] = useState<string>("");
-  const [currentTime, setCurrentTime] = useState<Date>(new Date()); // Pour forcer le re-render selon l'heure
   const [assignmentNotes, setAssignmentNotes] = useState<string>("");
   const [reopenTicketId, setReopenTicketId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState<string>("");
@@ -2046,15 +1947,6 @@ function DSIDashboard({ token }: DSIDashboardProps) {
       setReopenedTicketsCount(0);
     }
   }, [selectedReport, allTickets, token, reopeningCalculated]);
-
-  // Mettre à jour l'heure actuelle toutes les minutes pour recalculer le statut de disponibilité
-  useEffect(() => {
-    const timeInterval = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 60000); // Mise à jour toutes les minutes
-    
-    return () => clearInterval(timeInterval);
-  }, []);
 
   // Fonction pour filtrer les techniciens selon le type du ticket
   function getFilteredTechnicians(ticketType: string | undefined): Technician[] {
@@ -9401,33 +9293,21 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
                                {initials}
                              </div>
                              <div style={{ flex: 1 }}>
-                               <div style={{ fontSize: "18px", fontWeight: "700", color: "#333", marginBottom: "4px", display: "flex", alignItems: "center", gap: "8px" }}>
-                                 {tech.full_name}
-                                <span style={{
-                                  padding: "2px 8px",
-                                  borderRadius: "8px",
-                                  fontSize: "12px",
-                                  fontWeight: "500",
-                                  background:
-                                    currentStatus === "disponible" ? "#d4edda" :
-                                    currentStatus === "occupé" ? "#fff3cd" :
-                                    currentStatus === "en pause" ? "#fde68a" :
-                                    "#e5e7eb",
-                                  color:
-                                    currentStatus === "disponible" ? "#155724" :
-                                    currentStatus === "occupé" ? "#856404" :
-                                    currentStatus === "en pause" ? "#92400e" :
-                                    "#374151"
-                                }}>
-                                  {currentStatus === "disponible"
-                                    ? "Disponible"
-                                    : currentStatus === "occupé"
-                                    ? "Occupé"
-                                    : currentStatus === "en pause"
-                                    ? "En pause"
-                                    : "Indisponible"}
+                              <div style={{ fontSize: "18px", fontWeight: "700", color: "#333", marginBottom: "4px", display: "flex", alignItems: "center", gap: "8px" }}>
+                                {tech.full_name}
+                                <span
+                                  style={{
+                                    padding: "2px 8px",
+                                    borderRadius: "8px",
+                                    fontSize: "12px",
+                                    fontWeight: "500",
+                                    background: currentStatus === "actif" ? "#d4edda" : "#f8d7da",
+                                    color: currentStatus === "actif" ? "#155724" : "#721c24",
+                                  }}
+                                >
+                                  {currentStatus === "actif" ? "Actif" : "Inactif"}
                                 </span>
-                               </div>
+                              </div>
                                <span style={{
                                  padding: "4px 10px",
                                  borderRadius: "12px",

@@ -157,6 +157,34 @@ class TicketHistory(Base):
     user = relationship("User")
 
 
+class TicketTypeModel(Base):
+    """
+    Table de configuration pour les types de tickets.
+    Elle permet de gérer les types dans la base sans impacter la logique existante basée sur l'enum TicketType.
+    """
+    __tablename__ = "ticket_types"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    code = Column(String(50), unique=True, nullable=False)  # ex: "materiel", "applicatif"
+    label = Column(String(100), nullable=False)  # ex: "Matériel", "Applicatif"
+    is_active = Column(Boolean, default=True)
+
+
+class TicketCategory(Base):
+    """
+    Table de configuration pour les catégories de tickets.
+    Les tickets continuent de stocker le nom de la catégorie en texte libre via Ticket.category,
+    mais cette table permet de centraliser et d'étendre facilement la liste des catégories.
+    """
+    __tablename__ = "ticket_categories"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String(100), unique=True, nullable=False)
+    description = Column(Text, nullable=True)
+    type_code = Column(String(50), nullable=False)  # ex: "materiel" ou "applicatif"
+    is_active = Column(Boolean, default=True)
+
+
 class NotificationType(str, PyEnum):
     # Notifications utilisateur
     TICKET_CREE = "ticket_créé"

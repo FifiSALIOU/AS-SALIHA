@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from .models import TicketPriority, TicketStatus, TicketType, CommentType, NotificationType
+from .models import TicketPriority, TicketStatus, TicketType, CommentType, NotificationType, TicketTypeModel, TicketCategory
 
 
 class RoleBase(BaseModel):
@@ -122,6 +122,27 @@ class TicketRead(TicketBase):
     resolved_at: Optional[datetime] = None
     closed_at: Optional[datetime] = None
     # category est hérité de TicketBase
+
+    class Config:
+        from_attributes = True
+
+
+class TicketTypeConfig(BaseModel):
+    id: UUID
+    code: str
+    label: str
+    is_active: bool
+
+    class Config:
+        from_attributes = True
+
+
+class TicketCategoryConfig(BaseModel):
+    id: UUID
+    name: str
+    description: Optional[str] = None
+    type_code: str
+    is_active: bool
 
     class Config:
         from_attributes = True
