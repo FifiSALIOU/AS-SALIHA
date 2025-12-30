@@ -34,13 +34,28 @@ function LoginPage({ onLogin }: LoginPageProps) {
       body.append("grant_type", "password");
       body.append("scope", "");
 
-      const res = await fetch(base + "/auth/token", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body,
-      });
+      // Créer un AbortController pour gérer le timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // Timeout de 10 secondes
+
+      let res;
+      try {
+        res = await fetch(base + "/auth/token", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body,
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        if (fetchError.name === 'AbortError') {
+          throw new Error("La requête a pris trop de temps. Vérifiez que le backend est accessible.");
+        }
+        throw fetchError;
+      }
       console.log("Réponse /auth/token:", res.status, res.statusText);
 
       if (!res.ok) {
@@ -59,11 +74,27 @@ function LoginPage({ onLogin }: LoginPageProps) {
       
       // Récupérer les infos de l'utilisateur pour connaître son rôle
       try {
-        const userRes = await fetch(base + "/auth/me", {
-          headers: {
-            Authorization: `Bearer ${data.access_token}`,
-          },
-        });
+        const userController = new AbortController();
+        const userTimeoutId = setTimeout(() => userController.abort(), 5000); // Timeout de 5 secondes
+        
+        let userRes;
+        try {
+          userRes = await fetch(base + "/auth/me", {
+            headers: {
+              Authorization: `Bearer ${data.access_token}`,
+            },
+            signal: userController.signal,
+          });
+          clearTimeout(userTimeoutId);
+        } catch (fetchError: any) {
+          clearTimeout(userTimeoutId);
+          if (fetchError.name === 'AbortError') {
+            console.warn("Timeout lors de la récupération des infos utilisateur");
+            throw fetchError;
+          }
+          throw fetchError;
+        }
+        
         if (userRes.ok) {
           const userData = await userRes.json();
           if (userData.role && userData.role.name) {
@@ -73,6 +104,7 @@ function LoginPage({ onLogin }: LoginPageProps) {
         }
       } catch (err) {
         console.error("Erreur récupération infos utilisateur:", err);
+        // Ne pas bloquer la connexion si la récupération du rôle échoue
       }
       
       onLogin(data.access_token);
