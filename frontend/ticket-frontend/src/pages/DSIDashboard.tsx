@@ -5249,8 +5249,31 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
             borderRadius: "12px",
             padding: "10px 12px",
             boxShadow: "0 6px 18px rgba(15,23,42,0.08)",
+            position: "relative",
+            overflow: "hidden",
+          }}
+          onMouseEnter={(e) => {
+            const badge = e.currentTarget.querySelector('.kpi-badge') as HTMLElement;
+            if (badge) badge.style.transform = "scale(1.5)";
+          }}
+          onMouseLeave={(e) => {
+            const badge = e.currentTarget.querySelector('.kpi-badge') as HTMLElement;
+            if (badge) badge.style.transform = "scale(1)";
           }}
         >
+          <div
+            className="kpi-badge"
+            style={{
+              position: "absolute",
+              right: "-16px",
+              top: "-16px",
+              width: "96px",
+              height: "96px",
+              borderRadius: "50%",
+              background: "rgba(255, 138, 60, 0.05)",
+              transition: "transform 500ms ease",
+            }}
+          />
           <div
             style={{
               display: "flex",
@@ -5298,8 +5321,31 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
             borderRadius: "12px",
             padding: "10px 12px",
             boxShadow: "0 6px 18px rgba(15,23,42,0.08)",
+            position: "relative",
+            overflow: "hidden",
+          }}
+          onMouseEnter={(e) => {
+            const badge = e.currentTarget.querySelector('.kpi-badge') as HTMLElement;
+            if (badge) badge.style.transform = "scale(1.5)";
+          }}
+          onMouseLeave={(e) => {
+            const badge = e.currentTarget.querySelector('.kpi-badge') as HTMLElement;
+            if (badge) badge.style.transform = "scale(1)";
           }}
         >
+          <div
+            className="kpi-badge"
+            style={{
+              position: "absolute",
+              right: "-16px",
+              top: "-16px",
+              width: "96px",
+              height: "96px",
+              borderRadius: "50%",
+              background: "rgba(255, 138, 60, 0.05)",
+              transition: "transform 500ms ease",
+            }}
+          />
           <div
             style={{
               width: "36px",
@@ -5339,8 +5385,31 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
             borderRadius: "12px",
             padding: "10px 12px",
             boxShadow: "0 6px 18px rgba(15,23,42,0.08)",
+            position: "relative",
+            overflow: "hidden",
+          }}
+          onMouseEnter={(e) => {
+            const badge = e.currentTarget.querySelector('.kpi-badge') as HTMLElement;
+            if (badge) badge.style.transform = "scale(1.5)";
+          }}
+          onMouseLeave={(e) => {
+            const badge = e.currentTarget.querySelector('.kpi-badge') as HTMLElement;
+            if (badge) badge.style.transform = "scale(1)";
           }}
         >
+          <div
+            className="kpi-badge"
+            style={{
+              position: "absolute",
+              right: "-16px",
+              top: "-16px",
+              width: "96px",
+              height: "96px",
+              borderRadius: "50%",
+              background: "rgba(255, 138, 60, 0.05)",
+              transition: "transform 500ms ease",
+            }}
+          />
           <div
             style={{
               width: "36px",
@@ -5381,8 +5450,31 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
             borderRadius: "12px",
             padding: "10px 12px",
             boxShadow: "0 6px 18px rgba(15,23,42,0.08)",
+            position: "relative",
+            overflow: "hidden",
+          }}
+          onMouseEnter={(e) => {
+            const badge = e.currentTarget.querySelector('.kpi-badge') as HTMLElement;
+            if (badge) badge.style.transform = "scale(1.5)";
+          }}
+          onMouseLeave={(e) => {
+            const badge = e.currentTarget.querySelector('.kpi-badge') as HTMLElement;
+            if (badge) badge.style.transform = "scale(1)";
           }}
         >
+          <div
+            className="kpi-badge"
+            style={{
+              position: "absolute",
+              right: "-16px",
+              top: "-16px",
+              width: "96px",
+              height: "96px",
+              borderRadius: "50%",
+              background: "rgba(255, 138, 60, 0.05)",
+              transition: "transform 500ms ease",
+            }}
+          />
           <div
             style={{
               width: "36px",
@@ -5423,8 +5515,31 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
             borderRadius: "12px",
             padding: "10px 12px",
             boxShadow: "0 6px 18px rgba(15,23,42,0.08)",
+            position: "relative",
+            overflow: "hidden",
+          }}
+          onMouseEnter={(e) => {
+            const badge = e.currentTarget.querySelector('.kpi-badge') as HTMLElement;
+            if (badge) badge.style.transform = "scale(1.5)";
+          }}
+          onMouseLeave={(e) => {
+            const badge = e.currentTarget.querySelector('.kpi-badge') as HTMLElement;
+            if (badge) badge.style.transform = "scale(1)";
           }}
         >
+          <div
+            className="kpi-badge"
+            style={{
+              position: "absolute",
+              right: "-16px",
+              top: "-16px",
+              width: "96px",
+              height: "96px",
+              borderRadius: "50%",
+              background: "rgba(255, 138, 60, 0.05)",
+              transition: "transform 500ms ease",
+            }}
+          />
           <div
             style={{
               width: "36px",
@@ -5464,8 +5579,31 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
             borderRadius: "12px",
             padding: "10px 12px",
             boxShadow: "0 6px 18px rgba(15,23,42,0.08)",
+            position: "relative",
+            overflow: "hidden",
+          }}
+          onMouseEnter={(e) => {
+            const badge = e.currentTarget.querySelector('.kpi-badge') as HTMLElement;
+            if (badge) badge.style.transform = "scale(1.5)";
+          }}
+          onMouseLeave={(e) => {
+            const badge = e.currentTarget.querySelector('.kpi-badge') as HTMLElement;
+            if (badge) badge.style.transform = "scale(1)";
           }}
         >
+          <div
+            className="kpi-badge"
+            style={{
+              position: "absolute",
+              right: "-16px",
+              top: "-16px",
+              width: "96px",
+              height: "96px",
+              borderRadius: "50%",
+              background: "rgba(255, 138, 60, 0.05)",
+              transition: "transform 500ms ease",
+            }}
+          />
           <div
             style={{
               width: "36px",
