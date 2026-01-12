@@ -2292,13 +2292,13 @@ function UserDashboard({ token: tokenProp }: UserDashboardProps) {
             {(activeSection === "dashboard" || activeSection === "tickets") && (
               <div style={{ 
                 display: "flex", 
-                alignItems: "center", 
+                flexDirection: "column",
                 gap: "12px", 
                 marginTop: "20px",
                 marginBottom: "20px"
               }}>
+                {/* Barre de recherche */}
                 <div style={{ 
-                  flex: 1, 
                   position: "relative", 
                   display: "flex", 
                   alignItems: "center" 
@@ -2329,60 +2329,67 @@ function UserDashboard({ token: tokenProp }: UserDashboardProps) {
                     }}
                   />
                 </div>
-                <select
-                  value={dashboardStatusFilter}
-                  onChange={(e) => setDashboardStatusFilter(e.target.value)}
-                  style={{ 
-                    padding: "10px 12px", 
-                    border: "1px solid #d1d5db", 
-                    borderRadius: "8px",
-                    fontSize: "14px",
-                    background: "white",
-                    minWidth: "160px"
-                  }}
-                >
-                  <option value="">Tous les statuts</option>
-                  <option value="en_attente_analyse">En attente d'assignation</option>
-                  <option value="assigne_technicien">Assigné au technicien</option>
-                  <option value="en_cours">En cours</option>
-                  <option value="resolu">Résolu</option>
-                  <option value="rejete">Rejeté</option>
-                  <option value="cloture">Clôturé</option>
-                </select>
-                <select
-                  value={dashboardCategoryFilter}
-                  onChange={(e) => setDashboardCategoryFilter(e.target.value)}
-                  style={{ 
-                    padding: "10px 12px", 
-                    border: "1px solid #d1d5db", 
-                    borderRadius: "8px",
-                    fontSize: "14px",
-                    background: "white",
-                    minWidth: "140px"
-                  }}
-                >
-                  <option value="">Tous types</option>
-                  <option value="materiel">Matériel</option>
-                  <option value="applicatif">Applicatif</option>
-                </select>
-                <select
-                  value={dashboardPriorityFilter}
-                  onChange={(e) => setDashboardPriorityFilter(e.target.value)}
-                  style={{ 
-                    padding: "10px 12px", 
-                    border: "1px solid #d1d5db", 
-                    borderRadius: "8px",
-                    fontSize: "14px",
-                    background: "white",
-                    minWidth: "140px"
-                  }}
-                >
-                  <option value="">Toutes les priorités</option>
-                  <option value="critique">Critique</option>
-                  <option value="haute">Haute</option>
-                  <option value="moyenne">Moyenne</option>
-                  <option value="faible">Faible</option>
-                </select>
+                {/* Filtres */}
+                <div style={{ 
+                  display: "flex", 
+                  alignItems: "center", 
+                  gap: "12px"
+                }}>
+                  <select
+                    value={dashboardStatusFilter}
+                    onChange={(e) => setDashboardStatusFilter(e.target.value)}
+                    style={{ 
+                      padding: "10px 12px", 
+                      border: "1px solid #d1d5db", 
+                      borderRadius: "8px",
+                      fontSize: "14px",
+                      background: "white",
+                      minWidth: "160px"
+                    }}
+                  >
+                    <option value="">Tous les statuts</option>
+                    <option value="en_attente_analyse">En attente d'assignation</option>
+                    <option value="assigne_technicien">Assigné au technicien</option>
+                    <option value="en_cours">En cours</option>
+                    <option value="resolu">Résolu</option>
+                    <option value="rejete">Rejeté</option>
+                    <option value="cloture">Clôturé</option>
+                  </select>
+                  <select
+                    value={dashboardCategoryFilter}
+                    onChange={(e) => setDashboardCategoryFilter(e.target.value)}
+                    style={{ 
+                      padding: "10px 12px", 
+                      border: "1px solid #d1d5db", 
+                      borderRadius: "8px",
+                      fontSize: "14px",
+                      background: "white",
+                      minWidth: "140px"
+                    }}
+                  >
+                    <option value="">Tous types</option>
+                    <option value="materiel">Matériel</option>
+                    <option value="applicatif">Applicatif</option>
+                  </select>
+                  <select
+                    value={dashboardPriorityFilter}
+                    onChange={(e) => setDashboardPriorityFilter(e.target.value)}
+                    style={{ 
+                      padding: "10px 12px", 
+                      border: "1px solid #d1d5db", 
+                      borderRadius: "8px",
+                      fontSize: "14px",
+                      background: "white",
+                      minWidth: "140px"
+                    }}
+                  >
+                    <option value="">Toutes les priorités</option>
+                    <option value="critique">Critique</option>
+                    <option value="haute">Haute</option>
+                    <option value="moyenne">Moyenne</option>
+                    <option value="faible">Faible</option>
+                  </select>
+                </div>
               </div>
             )}
             {/* Compteur de tickets avec icône */}
