@@ -2397,13 +2397,13 @@ function DSIDashboard({ token }: DSIDashboardProps) {
         // Trouver l'entrée d'historique correspondant au rejet
         const rejectionEntry = history.find((h: any) => 
           h.new_status === "rejete" && h.reason && (
-            h.reason.includes("Validation utilisateur: Relancé") || 
-            h.reason.includes("Relancé")
+            h.reason.includes("Validation utilisateur: Rejeté") || 
+            h.reason.includes("Rejeté")
           )
         );
         console.log("Entrée de rejet trouvée:", rejectionEntry); // Debug
         if (rejectionEntry && rejectionEntry.reason) {
-          // Extraire le motif du format "Validation utilisateur: Relancé. Motif: [motif]"
+          // Extraire le motif du format "Validation utilisateur: Rejeté. Motif: [motif]"
           const match = rejectionEntry.reason.match(/Motif:\s*(.+)/);
           const extractedReason = match ? match[1].trim() : rejectionEntry.reason;
           console.log("Motif extrait:", extractedReason); // Debug
