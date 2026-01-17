@@ -29,6 +29,10 @@ class EmailService:
         self.app_base_url = os.getenv("APP_BASE_URL", "http://localhost:5173")
         self.email_enabled = os.getenv("EMAIL_ENABLED", "true").lower() == "true"
     
+    def _format_ticket_number(self, ticket_number: int) -> str:
+        """Formate le numéro de ticket en TKT-XXX"""
+        return f"TKT-{ticket_number:03d}"
+    
     def send_email(
         self,
         to_emails: List[str],
@@ -119,7 +123,8 @@ class EmailService:
         Returns:
             True si l'email a été envoyé avec succès
         """
-        subject = f"Nouveau ticket #{ticket_number} créé: {ticket_title}"
+        formatted_number = self._format_ticket_number(ticket_number)
+        subject = f"Nouveau ticket {formatted_number} créé: {ticket_title}"
         
         body = f"""
 Bonjour,
@@ -127,7 +132,7 @@ Bonjour,
 Un nouveau ticket a été créé dans le système de gestion des tickets.
 
 Détails du ticket :
-• Numéro : #{ticket_number}
+• Numéro : {formatted_number}
 • Titre : {ticket_title}
 • Créateur : {creator_name}
 
@@ -146,7 +151,7 @@ Cordialement,
     <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 15px 0;">
         <p><strong>Détails du ticket :</strong></p>
         <ul>
-            <li><strong>Numéro :</strong> #{ticket_number}</li>
+            <li><strong>Numéro :</strong> {formatted_number}</li>
             <li><strong>Titre :</strong> {ticket_title}</li>
             <li><strong>Créateur :</strong> {creator_name}</li>
         </ul>
@@ -171,14 +176,15 @@ Cordialement,
         recipient_email: str,
         recipient_role: str
     ) -> bool:
-        subject = f"Nouveau ticket #{ticket_number} créé: {ticket_title}"
+        formatted_number = self._format_ticket_number(ticket_number)
+        subject = f"Nouveau ticket {formatted_number} créé: {ticket_title}"
         body = f"""
 Bonjour,
 
 Un nouveau ticket a été créé dans le système de gestion des tickets.
 
 Détails du ticket :
-• Numéro : #{ticket_number}
+• Numéro : {formatted_number}
 • Titre : {ticket_title}
 • Créateur : {creator_name}
 
@@ -229,7 +235,7 @@ Cordialement,
     <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 15px 0;">
         <p><strong>Détails du ticket :</strong></p>
         <ul>
-            <li><strong>Numéro :</strong> #{ticket_number}</li>
+            <li><strong>Numéro :</strong> {formatted_number}</li>
             <li><strong>Titre :</strong> {ticket_title}</li>
             <li><strong>Créateur :</strong> {creator_name}</li>
         </ul>
@@ -265,7 +271,8 @@ Cordialement,
         Returns:
             True si l'email a été envoyé avec succès
         """
-        subject = f"Ticket #{ticket_number} vous a été assigné: {ticket_title}"
+        formatted_number = self._format_ticket_number(ticket_number)
+        subject = f"Ticket {formatted_number} vous a été assigné: {ticket_title}"
         
         body = f"""
 Bonjour {technician_name},
@@ -273,7 +280,7 @@ Bonjour {technician_name},
 Un nouveau ticket vous a été assigné.
 
 Détails du ticket :
-• Numéro : #{ticket_number}
+• Numéro : {formatted_number}
 • Titre : {ticket_title}
 """
         
@@ -307,7 +314,7 @@ Cordialement,
     <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 15px 0;">
         <p><strong>Détails du ticket :</strong></p>
         <ul>
-            <li><strong>Numéro :</strong> #{ticket_number}</li>
+            <li><strong>Numéro :</strong> {formatted_number}</li>
             <li><strong>Titre :</strong> {ticket_title}</li>
 """
         
@@ -358,7 +365,8 @@ Cordialement,
         Returns:
             True si l'email a été envoyé avec succès
         """
-        subject = f"Votre ticket #{ticket_number} a été assigné à un technicien"
+        formatted_number = self._format_ticket_number(ticket_number)
+        subject = f"Votre ticket {formatted_number} a été assigné à un technicien"
         
         body = f"""
 Bonjour {creator_name},
@@ -366,7 +374,7 @@ Bonjour {creator_name},
 Votre ticket a été assigné à un technicien et sera traité prochainement.
 
 Détails du ticket :
-• Numéro : #{ticket_number}
+• Numéro : {formatted_number}
 • Titre : {ticket_title}
 • Technicien assigné : {technician_name}
 
@@ -391,7 +399,7 @@ Cordialement,
     <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 15px 0;">
         <p><strong>Détails du ticket :</strong></p>
         <ul>
-            <li><strong>Numéro :</strong> #{ticket_number}</li>
+            <li><strong>Numéro :</strong> {formatted_number}</li>
             <li><strong>Titre :</strong> {ticket_title}</li>
             <li><strong>Technicien assigné :</strong> {technician_name}</li>
         </ul>
@@ -429,7 +437,8 @@ Cordialement,
         Returns:
             True si l'email a été envoyé avec succès
         """
-        subject = f"Votre ticket #{ticket_number} a été créé avec succès"
+        formatted_number = self._format_ticket_number(ticket_number)
+        subject = f"Votre ticket {formatted_number} a été créé avec succès"
         
         body = f"""
 Bonjour {creator_name},
@@ -437,7 +446,7 @@ Bonjour {creator_name},
 Votre ticket a été créé avec succès et sera traité prochainement.
 
 Détails du ticket :
-• Numéro : #{ticket_number}
+• Numéro : {formatted_number}
 • Titre : {ticket_title}
 
 Vous serez notifié lorsque le ticket sera assigné à un technicien.
@@ -461,7 +470,7 @@ Cordialement,
     <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 15px 0;">
         <p><strong>Détails du ticket :</strong></p>
         <ul>
-            <li><strong>Numéro :</strong> #{ticket_number}</li>
+            <li><strong>Numéro :</strong> {formatted_number}</li>
             <li><strong>Titre :</strong> {ticket_title}</li>
         </ul>
     </div>
@@ -485,14 +494,15 @@ Cordialement,
         technician_name: str,
         rejection_reason: Optional[str] = None
     ) -> bool:
-        subject = f"Ticket #{ticket_number} rejeté par l'utilisateur: {ticket_title}"
+        formatted_number = self._format_ticket_number(ticket_number)
+        subject = f"Ticket {formatted_number} rejeté par l'utilisateur: {ticket_title}"
         body = f"""
 Bonjour {technician_name},
 
 L'utilisateur a rejeté la résolution du ticket.
 
 Détails du ticket :
-• Numéro : #{ticket_number}
+• Numéro : {formatted_number}
 • Titre : {ticket_title}
 """
         if rejection_reason:
@@ -514,7 +524,7 @@ Cordialement,
     <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 15px 0;">
         <p><strong>Détails du ticket :</strong></p>
         <ul>
-            <li><strong>Numéro :</strong> #{ticket_number}</li>
+            <li><strong>Numéro :</strong> {formatted_number}</li>
             <li><strong>Titre :</strong> {ticket_title}</li>
         </ul>
     </div>
@@ -552,7 +562,8 @@ Cordialement,
         Returns:
             True si l'email a été envoyé avec succès
         """
-        subject = f"Ticket #{ticket_number} délégué par le DSI: {ticket_title}"
+        formatted_number = self._format_ticket_number(ticket_number)
+        subject = f"Ticket {formatted_number} délégué par le DSI: {ticket_title}"
         
         body = f"""
 Bonjour {adjoint_name},
@@ -560,7 +571,7 @@ Bonjour {adjoint_name},
 Le DSI {dsi_name} vous a délégué un ticket à assigner à un technicien.
 
 Détails du ticket :
-• Numéro : #{ticket_number}
+• Numéro : {formatted_number}
 • Titre : {ticket_title}
 """
         
@@ -591,7 +602,7 @@ Cordialement,
     <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 15px 0;">
         <p><strong>Détails du ticket :</strong></p>
         <ul>
-            <li><strong>Numéro :</strong> #{ticket_number}</li>
+            <li><strong>Numéro :</strong> {formatted_number}</li>
             <li><strong>Titre :</strong> {ticket_title}</li>
         </ul>
     </div>
@@ -627,7 +638,8 @@ Cordialement,
         technician_name: str
     ) -> bool:
         """Envoie une notification à l'utilisateur lorsque le ticket est en cours de traitement"""
-        subject = f"Votre ticket #{ticket_number} est en cours de traitement"
+        formatted_number = self._format_ticket_number(ticket_number)
+        subject = f"Votre ticket {formatted_number} est en cours de traitement"
         
         body = f"""
 Bonjour {creator_name},
@@ -635,7 +647,7 @@ Bonjour {creator_name},
 Votre ticket est maintenant en cours de traitement par le technicien.
 
 Détails du ticket :
-• Numéro : #{ticket_number}
+• Numéro : {formatted_number}
 • Titre : {ticket_title}
 • Technicien : {technician_name}
 
@@ -659,7 +671,7 @@ Cordialement,
     <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 15px 0;">
         <p><strong>Détails du ticket :</strong></p>
         <ul>
-            <li><strong>Numéro :</strong> #{ticket_number}</li>
+            <li><strong>Numéro :</strong> {formatted_number}</li>
             <li><strong>Titre :</strong> {ticket_title}</li>
             <li><strong>Technicien :</strong> {technician_name}</li>
         </ul>
@@ -686,7 +698,8 @@ Cordialement,
         resolution_summary: Optional[str] = None
     ) -> bool:
         """Envoie une notification à l'utilisateur lorsque le ticket est résolu"""
-        subject = f"Votre ticket #{ticket_number} a été résolu - Validation requise"
+        formatted_number = self._format_ticket_number(ticket_number)
+        subject = f"Votre ticket {formatted_number} a été résolu - Validation requise"
         
         body = f"""
 Bonjour {creator_name},
@@ -694,7 +707,7 @@ Bonjour {creator_name},
 Votre ticket a été résolu. Veuillez valider la résolution.
 
 Détails du ticket :
-• Numéro : #{ticket_number}
+• Numéro : {formatted_number}
 • Titre : {ticket_title}
 """
         if resolution_summary:
@@ -721,7 +734,7 @@ Cordialement,
     <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 15px 0;">
         <p><strong>Détails du ticket :</strong></p>
         <ul>
-            <li><strong>Numéro :</strong> #{ticket_number}</li>
+            <li><strong>Numéro :</strong> {formatted_number}</li>
             <li><strong>Titre :</strong> {ticket_title}</li>
         </ul>
     </div>
@@ -758,12 +771,13 @@ Cordialement,
         days_since_resolution: int
     ) -> bool:
         """Envoie un rappel de validation à l'utilisateur"""
+        formatted_number = self._format_ticket_number(ticket_number)
         subjects = {
-            1: f"Rappel : Veuillez valider votre ticket #{ticket_number}",
-            2: f"Second rappel : Validation requise pour votre ticket #{ticket_number}",
-            3: f"Dernier rappel : Veuillez valider votre ticket #{ticket_number}"
+            1: f"Rappel : Veuillez valider votre ticket {formatted_number}",
+            2: f"Second rappel : Validation requise pour votre ticket {formatted_number}",
+            3: f"Dernier rappel : Veuillez valider votre ticket {formatted_number}"
         }
-        subject = subjects.get(reminder_number, f"Rappel : Validation requise pour votre ticket #{ticket_number}")
+        subject = subjects.get(reminder_number, f"Rappel : Validation requise pour votre ticket {formatted_number}")
         
         messages = {
             1: f"Votre ticket a été résolu il y a {days_since_resolution} jours. Veuillez valider la résolution.",
@@ -778,7 +792,7 @@ Bonjour {creator_name},
 {message}
 
 Détails du ticket :
-• Numéro : #{ticket_number}
+• Numéro : {formatted_number}
 • Titre : {ticket_title}
 
 Merci de valider la résolution dès que possible.
@@ -806,7 +820,7 @@ Cordialement,
     <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 15px 0;">
         <p><strong>Détails du ticket :</strong></p>
         <ul>
-            <li><strong>Numéro :</strong> #{ticket_number}</li>
+            <li><strong>Numéro :</strong> {formatted_number}</li>
             <li><strong>Titre :</strong> {ticket_title}</li>
         </ul>
     </div>
@@ -829,7 +843,8 @@ Cordialement,
         creator_name: str
     ) -> bool:
         """Envoie une notification à l'utilisateur lorsque le ticket est clôturé automatiquement"""
-        subject = f"Votre ticket #{ticket_number} a été clôturé automatiquement"
+        formatted_number = self._format_ticket_number(ticket_number)
+        subject = f"Votre ticket {formatted_number} a été clôturé automatiquement"
         
         body = f"""
 Bonjour {creator_name},
@@ -837,7 +852,7 @@ Bonjour {creator_name},
 Votre ticket a été clôturé automatiquement après 14 jours sans validation.
 
 Détails du ticket :
-• Numéro : #{ticket_number}
+• Numéro : {formatted_number}
 • Titre : {ticket_title}
 
 Vous pouvez réouvrir ce ticket dans les 7 prochains jours si le problème persiste. Après cette période, vous devrez créer un nouveau ticket.
@@ -862,7 +877,7 @@ Cordialement,
     <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 15px 0;">
         <p><strong>Détails du ticket :</strong></p>
         <ul>
-            <li><strong>Numéro :</strong> #{ticket_number}</li>
+            <li><strong>Numéro :</strong> {formatted_number}</li>
             <li><strong>Titre :</strong> {ticket_title}</li>
         </ul>
     </div>
@@ -889,7 +904,8 @@ Cordialement,
         rejection_reason: Optional[str] = None
     ) -> bool:
         """Envoie une notification à l'utilisateur lorsque son ticket est rejeté"""
-        subject = f"Votre ticket #{ticket_number} a été rejeté"
+        formatted_number = self._format_ticket_number(ticket_number)
+        subject = f"Votre ticket {formatted_number} a été rejeté"
         
         body = f"""
 Bonjour {creator_name},
@@ -897,7 +913,7 @@ Bonjour {creator_name},
 Votre ticket a été rejeté.
 
 Détails du ticket :
-• Numéro : #{ticket_number}
+• Numéro : {formatted_number}
 • Titre : {ticket_title}
 """
         if rejection_reason:
@@ -926,7 +942,7 @@ Cordialement,
     <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 15px 0;">
         <p><strong>Détails du ticket :</strong></p>
         <ul>
-            <li><strong>Numéro :</strong> #{ticket_number}</li>
+            <li><strong>Numéro :</strong> {formatted_number}</li>
             <li><strong>Titre :</strong> {ticket_title}</li>
         </ul>
     </div>
@@ -961,7 +977,8 @@ Cordialement,
         comment_content: str
     ) -> bool:
         """Envoie une notification à l'utilisateur lorsqu'un commentaire est ajouté"""
-        subject = f"Nouveau commentaire sur votre ticket #{ticket_number}"
+        formatted_number = self._format_ticket_number(ticket_number)
+        subject = f"Nouveau commentaire sur votre ticket {formatted_number}"
         
         body = f"""
 Bonjour {creator_name},
@@ -969,7 +986,7 @@ Bonjour {creator_name},
 Un nouveau commentaire a été ajouté sur votre ticket.
 
 Détails du ticket :
-• Numéro : #{ticket_number}
+• Numéro : {formatted_number}
 • Titre : {ticket_title}
 • Commentaire de : {commenter_name}
 
@@ -994,7 +1011,7 @@ Cordialement,
     <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 15px 0;">
         <p><strong>Détails du ticket :</strong></p>
         <ul>
-            <li><strong>Numéro :</strong> #{ticket_number}</li>
+            <li><strong>Numéro :</strong> {formatted_number}</li>
             <li><strong>Titre :</strong> {ticket_title}</li>
             <li><strong>Commentaire de :</strong> {commenter_name}</li>
         </ul>
@@ -1024,7 +1041,8 @@ Cordialement,
         new_priority: str
     ) -> bool:
         """Envoie une notification à l'utilisateur lorsque la priorité change"""
-        subject = f"Priorité modifiée pour votre ticket #{ticket_number}"
+        formatted_number = self._format_ticket_number(ticket_number)
+        subject = f"Priorité modifiée pour votre ticket {formatted_number}"
         
         body = f"""
 Bonjour {creator_name},
@@ -1032,7 +1050,7 @@ Bonjour {creator_name},
 La priorité de votre ticket a été modifiée.
 
 Détails du ticket :
-• Numéro : #{ticket_number}
+• Numéro : {formatted_number}
 • Titre : {ticket_title}
 • Ancienne priorité : {old_priority}
 • Nouvelle priorité : {new_priority}
@@ -1055,7 +1073,7 @@ Cordialement,
     <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 15px 0;">
         <p><strong>Détails du ticket :</strong></p>
         <ul>
-            <li><strong>Numéro :</strong> #{ticket_number}</li>
+            <li><strong>Numéro :</strong> {formatted_number}</li>
             <li><strong>Titre :</strong> {ticket_title}</li>
             <li><strong>Ancienne priorité :</strong> {old_priority}</li>
             <li><strong>Nouvelle priorité :</strong> <strong style="color: #dc3545;">{new_priority}</strong></li>
@@ -1082,7 +1100,8 @@ Cordialement,
         new_technician_name: str
     ) -> bool:
         """Envoie une notification à l'utilisateur lorsque le technicien change"""
-        subject = f"Technicien modifié pour votre ticket #{ticket_number}"
+        formatted_number = self._format_ticket_number(ticket_number)
+        subject = f"Technicien modifié pour votre ticket {formatted_number}"
         
         technician_info = f"• Nouveau technicien : {new_technician_name}"
         if old_technician_name:
@@ -1094,7 +1113,7 @@ Bonjour {creator_name},
 Votre ticket a été réassigné à un autre technicien.
 
 Détails du ticket :
-• Numéro : #{ticket_number}
+• Numéro : {formatted_number}
 • Titre : {ticket_title}
 {technician_info}
 
@@ -1116,7 +1135,7 @@ Cordialement,
     <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 15px 0;">
         <p><strong>Détails du ticket :</strong></p>
         <ul>
-            <li><strong>Numéro :</strong> #{ticket_number}</li>
+            <li><strong>Numéro :</strong> {formatted_number}</li>
             <li><strong>Titre :</strong> {ticket_title}</li>
 """
         if old_technician_name:
@@ -1143,7 +1162,8 @@ Cordialement,
         creator_name: str
     ) -> bool:
         """Envoie une notification à l'utilisateur lorsque le ticket est réouvert"""
-        subject = f"Votre ticket #{ticket_number} a été réouvert"
+        formatted_number = self._format_ticket_number(ticket_number)
+        subject = f"Votre ticket {formatted_number} a été réouvert"
         
         body = f"""
 Bonjour {creator_name},
@@ -1151,7 +1171,7 @@ Bonjour {creator_name},
 Votre ticket a été réouvert pour traitement supplémentaire.
 
 Détails du ticket :
-• Numéro : #{ticket_number}
+• Numéro : {formatted_number}
 • Titre : {ticket_title}
 
 Le ticket sera traité à nouveau par un technicien.
@@ -1176,7 +1196,7 @@ Cordialement,
     <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 15px 0;">
         <p><strong>Détails du ticket :</strong></p>
         <ul>
-            <li><strong>Numéro :</strong> #{ticket_number}</li>
+            <li><strong>Numéro :</strong> {formatted_number}</li>
             <li><strong>Titre :</strong> {ticket_title}</li>
         </ul>
     </div>
@@ -1200,7 +1220,8 @@ Cordialement,
         creator_name: str
     ) -> bool:
         """Envoie une notification à l'utilisateur lorsque le ticket est clôturé (après validation)"""
-        subject = f"Votre ticket #{ticket_number} a été clôturé"
+        formatted_number = self._format_ticket_number(ticket_number)
+        subject = f"Votre ticket {formatted_number} a été clôturé"
         
         body = f"""
 Bonjour {creator_name},
@@ -1208,7 +1229,7 @@ Bonjour {creator_name},
 Votre ticket a été clôturé avec succès.
 
 Détails du ticket :
-• Numéro : #{ticket_number}
+• Numéro : {formatted_number}
 • Titre : {ticket_title}
 
 Merci d'avoir utilisé notre service de support.
@@ -1233,7 +1254,7 @@ Cordialement,
     <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 15px 0;">
         <p><strong>Détails du ticket :</strong></p>
         <ul>
-            <li><strong>Numéro :</strong> #{ticket_number}</li>
+            <li><strong>Numéro :</strong> {formatted_number}</li>
             <li><strong>Titre :</strong> {ticket_title}</li>
         </ul>
     </div>
