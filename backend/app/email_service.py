@@ -33,6 +33,16 @@ class EmailService:
         """Formate le numéro de ticket en TKT-XXX"""
         return f"TKT-{ticket_number:03d}"
     
+    def _format_priority(self, priority: str) -> str:
+        """Formate la priorité : TicketPriority.MOYENNE → Moyenne"""
+        if not priority:
+            return priority
+        # Extraire la partie après le point si elle existe (ex: TicketPriority.MOYENNE → MOYENNE)
+        if "." in priority:
+            priority = priority.split(".")[-1]
+        # Capitaliser uniquement la première lettre (MOYENNE → Moyenne)
+        return priority.capitalize()
+    
     def send_email(
         self,
         to_emails: List[str],
@@ -285,7 +295,8 @@ Détails du ticket :
 """
         
         if priority:
-            body += f"• Priorité : {priority}\n"
+            formatted_priority = self._format_priority(priority)
+            body += f"• Priorité : {formatted_priority}\n"
         
         if notes:
             body += f"\nInstructions :\n{notes}\n"
@@ -319,7 +330,8 @@ Cordialement,
 """
         
         if priority:
-            html_body += f"            <li><strong>Priorité :</strong> {priority}</li>\n"
+            formatted_priority = self._format_priority(priority)
+            html_body += f"            <li><strong>Priorité :</strong> {formatted_priority}</li>\n"
         
         html_body += "        </ul>"
         
@@ -1042,6 +1054,8 @@ Cordialement,
     ) -> bool:
         """Envoie une notification à l'utilisateur lorsque la priorité change"""
         formatted_number = self._format_ticket_number(ticket_number)
+        formatted_old_priority = self._format_priority(old_priority)
+        formatted_new_priority = self._format_priority(new_priority)
         subject = f"Priorité modifiée pour votre ticket {formatted_number}"
         
         body = f"""
@@ -1052,8 +1066,8 @@ La priorité de votre ticket a été modifiée.
 Détails du ticket :
 • Numéro : {formatted_number}
 • Titre : {ticket_title}
-• Ancienne priorité : {old_priority}
-• Nouvelle priorité : {new_priority}
+• Ancienne priorité : {formatted_old_priority}
+• Nouvelle priorité : {formatted_new_priority}
 
 Cordialement,
 {self.sender_name}
@@ -1075,8 +1089,8 @@ Cordialement,
         <ul>
             <li><strong>Numéro :</strong> {formatted_number}</li>
             <li><strong>Titre :</strong> {ticket_title}</li>
-            <li><strong>Ancienne priorité :</strong> {old_priority}</li>
-            <li><strong>Nouvelle priorité :</strong> <strong style="color: #dc3545;">{new_priority}</strong></li>
+            <li><strong>Ancienne priorité :</strong> {formatted_old_priority}</li>
+            <li><strong>Nouvelle priorité :</strong> <strong style="color: #dc3545;">{formatted_new_priority}</strong></li>
         </ul>
     </div>
     <div style="margin: 20px 0;">
