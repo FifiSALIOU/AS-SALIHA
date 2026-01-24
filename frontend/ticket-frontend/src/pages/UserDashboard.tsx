@@ -189,6 +189,17 @@ function UserDashboard({ token: tokenProp }: UserDashboardProps) {
       status.includes("cloture") ||
       status.includes("clôture")
     ) {
+      // Si c'est une validation et clôture par l'utilisateur (resolu → cloture avec validation)
+      const oldStatus = (entry.old_status || "").toLowerCase();
+      const isValidationAndClosure = 
+        (status.includes("cloture") || status.includes("clôture")) &&
+        (oldStatus.includes("resolu") || oldStatus.includes("résolu")) &&
+        entry.reason?.includes("Validation utilisateur: Validé");
+      
+      if (isValidationAndClosure) {
+        return entry.user?.full_name ? `Validé par ${entry.user.full_name}` : "Ticket validé";
+      }
+      
       return entry.user?.full_name ? `Résolu par ${entry.user.full_name}` : "Ticket résolu";
     }
 
