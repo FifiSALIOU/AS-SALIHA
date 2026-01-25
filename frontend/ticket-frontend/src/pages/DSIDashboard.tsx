@@ -247,6 +247,21 @@ function DSIDashboard({ token }: DSIDashboardProps) {
       return "Création du ticket";
     }
     
+    // Cas spécifique: assignation par Adjoint DSI (en_attente_analyse → assigne_technicien avec "Assignation par Secrétaire/Adjoint DSI")
+    const oldStatus = (entry.old_status || "").toLowerCase();
+    const newStatus = (entry.new_status || "").toLowerCase();
+    const reason = (entry.reason || "").toLowerCase();
+    
+    if ((oldStatus.includes("en_attente_analyse") || oldStatus.includes("en attente analyse")) &&
+        (newStatus.includes("assigne_technicien") || newStatus.includes("assigne technicien") || newStatus.includes("assigné technicien")) &&
+        (reason.includes("assignation par secrétaire") || reason.includes("assignation par adjoint") || reason.includes("secrétaire/adjoint dsi"))) {
+      // Si le ticket a un technicien assigné, afficher son nom
+      if (ticket && ticket.technician && ticket.technician.full_name) {
+        return `Assigné à ${ticket.technician.full_name}`;
+      }
+      return "Assigné à technicien";
+    }
+    
     // Pour le DSI, on affiche toujours le format "ancien → nouveau"
     return `${entry.old_status} → ${entry.new_status}`;
   };
