@@ -5672,7 +5672,7 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
                 </div>
                 <div>
                   <strong>Catégorie :</strong>
-                  <span style={{ marginLeft: "8px", padding: "4px 8px", background: "#f3e5f5", borderRadius: "4px" }}>
+                  <span style={{ marginLeft: "8px" }}>
                     {ticketDetails.category || "Non spécifiée"}
                   </span>
                 </div>
@@ -14186,7 +14186,7 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
                           {selectedNotificationTicketDetails.category && (
                             <div>
                               <strong>Catégorie :</strong>
-                              <span style={{ marginLeft: "8px", padding: "4px 8px", background: "#f3e5f5", borderRadius: "4px" }}>
+                              <span style={{ marginLeft: "8px" }}>
                                 {selectedNotificationTicketDetails.category}
                               </span>
                             </div>
@@ -15755,7 +15755,7 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
                       {selectedNotificationTicketDetails.category && (
                         <div>
                           <strong>Catégorie :</strong>
-                          <span style={{ marginLeft: "8px", padding: "4px 8px", background: "#f3e5f5", borderRadius: "4px" }}>
+                          <span style={{ marginLeft: "8px" }}>
                             {selectedNotificationTicketDetails.category || "Non spécifiée"}
                           </span>
                         </div>
