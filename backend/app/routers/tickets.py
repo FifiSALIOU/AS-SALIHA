@@ -89,7 +89,8 @@ def create_ticket(
                 ticket_title=ticket.title,
                 creator_name=current_user.full_name,
                 recipient_email=user.email,
-                recipient_role=user.role.name if user.role else ""
+                recipient_role=user.role.name if user.role else "",
+                recipient_name=user.full_name
             )
     
     # Créer une notification pour le créateur du ticket

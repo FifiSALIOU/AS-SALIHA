@@ -184,12 +184,14 @@ Cordialement,
         ticket_title: str,
         creator_name: str,
         recipient_email: str,
-        recipient_role: str
+        recipient_role: str,
+        recipient_name: str = ""
     ) -> bool:
         formatted_number = self._format_ticket_number(ticket_number)
         subject = f"Nouveau ticket {formatted_number} créé: {ticket_title}"
+        greeting = f"Bonjour, {recipient_name}" if recipient_name else "Bonjour,"
         body = f"""
-Bonjour,
+{greeting}
 
 Un nouveau ticket a été créé dans le système de gestion des tickets.
 
@@ -240,7 +242,7 @@ Cordialement,
 <html>
 <body>
     <h2>Nouveau ticket créé</h2>
-    <p>Bonjour,</p>
+    <p>{greeting}</p>
     <p>Un nouveau ticket a été créé dans le système de gestion des tickets.</p>
     <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 15px 0;">
         <p><strong>Détails du ticket :</strong></p>
