@@ -15182,6 +15182,9 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
                    />
                  </div>
                  <div style={{ borderTop: "1px solid #f3f4f6", paddingTop: "16px", marginTop: "4px" }}>
+                   <div style={{ marginBottom: "6px", fontSize: "14px", fontWeight: "500", color: "#374151" }}>
+                     Statut <span style={{ color: "#dc3545" }}>*</span>
+                   </div>
                    <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "14px", color: "#374151" }}>
                      <input
                        type="checkbox"
@@ -15192,11 +15195,6 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
                      <span>Actif</span>
                    </label>
                  </div>
-                 {(newUser.role === "Technicien (Matériel)" || newUser.role === "Technicien (Applicatif)") && (
-                   <div style={{ borderTop: "1px solid #f3f4f6", paddingTop: "16px" }}>
-                     <div style={{ fontSize: "14px", fontWeight: "500", color: "#374151" }}>Informations Technicien</div>
-                   </div>
-                 )}
                  <div>
                    <label style={{ display: "block", marginBottom: "6px", fontSize: "14px", fontWeight: "500", color: "#374151" }}>
                      Mot de passe <span style={{ color: "#dc3545" }}>*</span>
