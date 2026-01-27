@@ -1068,7 +1068,8 @@ function DSIDashboard({ token }: DSIDashboardProps) {
         username,
         password,
         role_id: role.id,
-        specialization: newUser.role === "Technicien (Matériel)" ? "materiel" : newUser.role === "Technicien (Applicatif)" ? "applicatif" : null
+        specialization: newUser.role === "Technicien (Matériel)" ? "materiel" : newUser.role === "Technicien (Applicatif)" ? "applicatif" : null,
+        send_credentials_email: !!newUser.sendEmail
       };
 
       const res = await fetch("http://localhost:8000/users/", {
@@ -1101,7 +1102,9 @@ function DSIDashboard({ token }: DSIDashboardProps) {
           generateRandomPassword: true,
           sendEmail: true
         });
-        if (newUser.generateRandomPassword) {
+        if (newUser.sendEmail) {
+          alert(`Utilisateur créé avec succès.\n\nLes identifiants ont été envoyés par email à ${newUser.email.trim()}.`);
+        } else if (newUser.generateRandomPassword) {
           alert(`Utilisateur créé avec succès.\n\nMot de passe généré : ${password}\n\nCopiez ce mot de passe et communiquez-le à l'utilisateur.`);
         } else {
           alert("Utilisateur créé avec succès !");

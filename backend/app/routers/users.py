@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from .. import models, schemas
 from ..database import get_db
 from ..security import get_current_user, require_role, get_password_hash
+from ..email_service import email_service
 
 router = APIRouter()
 
@@ -307,6 +308,18 @@ def create_user(
     
     # Charger le rôle pour la réponse
     db_user.role = role
+    
+    # Envoyer les identifiants par email si demandé
+    if getattr(user_in, "send_credentials_email", False):
+        try:
+            email_service.send_user_credentials(
+                to_email=db_user.email,
+                full_name=db_user.full_name,
+                username=user_in.username,
+                password=user_in.password,
+            )
+        except Exception as e:
+            print(f"[USERS] Envoi des identifiants par email échoué: {e}")
     
     return db_user
 

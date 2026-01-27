@@ -1285,6 +1285,49 @@ Cordialement,
         
         return self.send_email([creator_email], subject, body, html_body)
 
+    def send_user_credentials(
+        self,
+        to_email: str,
+        full_name: str,
+        username: str,
+        password: str
+    ) -> bool:
+        """
+        Envoie les identifiants de connexion à un nouvel utilisateur par email.
+        """
+        if not to_email or not to_email.strip():
+            return False
+        subject = "Vos identifiants de connexion - HelpDesk"
+        body = f"""Bonjour {full_name},
+
+Votre compte a été créé sur le système HelpDesk.
+
+Identifiants de connexion :
+- Nom d'utilisateur : {username}
+- Mot de passe : {password}
+
+Connectez-vous à l'application et modifiez votre mot de passe après la première connexion.
+
+Cordialement,
+{self.sender_name}
+"""
+        html_body = f"""
+<html>
+<body style="font-family: sans-serif; line-height: 1.6; color: #333;">
+    <p>Bonjour <strong>{full_name}</strong>,</p>
+    <p>Votre compte a été créé sur le système HelpDesk.</p>
+    <p><strong>Identifiants de connexion :</strong></p>
+    <ul>
+        <li>Nom d'utilisateur : <code>{username}</code></li>
+        <li>Mot de passe : <code>{password}</code></li>
+    </ul>
+    <p>Connectez-vous à l'application et modifiez votre mot de passe après la première connexion.</p>
+    <p>Cordialement,<br>{self.sender_name}</p>
+</body>
+</html>
+"""
+        return self.send_email([to_email.strip()], subject, body, html_body)
+
 
 # Instance globale du service email
 email_service = EmailService()

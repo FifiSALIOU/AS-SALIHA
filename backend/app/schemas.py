@@ -32,6 +32,7 @@ class UserCreate(UserBase):
     username: str
     password: str
     role_id: int
+    send_credentials_email: Optional[bool] = False
 
 
 class UserUpdate(BaseModel):
