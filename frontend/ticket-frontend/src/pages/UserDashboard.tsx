@@ -1917,21 +1917,24 @@ function UserDashboard({ token: tokenProp }: UserDashboardProps) {
                                     Par: {h.user.full_name}
                                   </div>
                                 )}
-                                {h.reason && (
-                                  <div style={{ marginTop: "4px", fontSize: "13px", color: "#4B5563" }}>
-                                    {(() => {
-                                      // Si c'est une validation rejetée, extraire seulement "Motif: ..."
-                                      const reason = h.reason || "";
-                                      if (reason.toLowerCase().includes("validation utilisateur: rejeté") && reason.includes("Motif:")) {
-                                        const motifMatch = reason.match(/Motif:\s*(.+)/i);
-                                        if (motifMatch && motifMatch[1]) {
-                                          return `Motif: ${motifMatch[1].trim()}`;
+                                {h.reason && (() => {
+                                  const reason = (h.reason || "").toLowerCase();
+                                  const isAssignmentBySecretary = reason.includes("assignation par secrétaire") ||
+                                    reason.includes("assignation par adjoint") ||
+                                    reason.includes("secrétaire/adjoint dsi");
+                                  if (isAssignmentBySecretary) return null;
+                                  return (
+                                    <div style={{ marginTop: "4px", fontSize: "13px", color: "#4B5563" }}>
+                                      {(() => {
+                                        if (reason.includes("validation utilisateur: rejeté") && (h.reason || "").includes("Motif:")) {
+                                          const motifMatch = (h.reason || "").match(/Motif:\s*(.+)/i);
+                                          if (motifMatch && motifMatch[1]) return `Motif: ${motifMatch[1].trim()}`;
                                         }
-                                      }
-                                      return reason;
-                                    })()}
-                                  </div>
-                                )}
+                                        return h.reason;
+                                      })()}
+                                    </div>
+                                  );
+                                })()}
                               </>
                             )}
                           </div>
