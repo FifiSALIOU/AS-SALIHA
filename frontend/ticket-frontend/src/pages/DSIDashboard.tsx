@@ -10638,32 +10638,6 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
                          <Plus size={18} />
                          Ajouter
                        </button>
-                       <button
-                         style={{
-                           padding: "10px 20px",
-                           backgroundColor: "#f1f5f9",
-                           color: fg,
-                           border: `1px solid ${borderColor}`,
-                           borderRadius: "8px",
-                           cursor: "pointer",
-                           fontSize: "14px"
-                         }}
-                       >
-                         Importer CSV
-                       </button>
-                       <button
-                         style={{
-                           padding: "10px 20px",
-                           backgroundColor: "#f1f5f9",
-                           color: fg,
-                           border: `1px solid ${borderColor}`,
-                           borderRadius: "8px",
-                           cursor: "pointer",
-                           fontSize: "14px"
-                         }}
-                       >
-                         Exporter
-                       </button>
                      </div>
                    </div>
 
