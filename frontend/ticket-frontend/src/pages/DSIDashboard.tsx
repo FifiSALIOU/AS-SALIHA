@@ -5563,6 +5563,9 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
         
         <div 
           onClick={() => {
+            setShowTicketDetailsPage(false);
+            setTicketDetails(null);
+            setTicketHistory([]);
             setStatusFilter("all");
             navigate(`${getRoutePrefix()}/tickets`);
           }}
