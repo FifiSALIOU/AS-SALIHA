@@ -744,6 +744,25 @@ function UserDashboard({ token: tokenProp }: UserDashboardProps) {
     }
   }
 
+  async function markTicketNotificationsAsRead(ticketId: string) {
+    const unreadForTicket = notifications.filter((n) => n.ticket_id === ticketId && !n.read);
+    if (unreadForTicket.length === 0 || !actualToken || actualToken.trim() === "") return;
+    try {
+      await Promise.all(
+        unreadForTicket.map((n) =>
+          fetch(`http://localhost:8000/notifications/${n.id}/read`, {
+            method: "PUT",
+            headers: { Authorization: `Bearer ${actualToken}` },
+          })
+        )
+      );
+      await loadNotifications();
+      await loadUnreadCount();
+    } catch (err) {
+      console.error("Erreur lors du marquage des notifications du ticket comme lues:", err);
+    }
+  }
+
   async function clearAllNotifications() {
     try {
       const unreadIds = notifications.filter((n) => !n.read).map((n) => n.id);
@@ -3412,6 +3431,7 @@ function UserDashboard({ token: tokenProp }: UserDashboardProps) {
                             const data = await res.json();
                             setSelectedNotificationTicketDetails(data);
                             await loadTicketHistory(ticket.id);
+                            await markTicketNotificationsAsRead(ticket.id);
                           }
                         } catch (err) {
                           console.error("Erreur chargement détails:", err);
@@ -4633,6 +4653,7 @@ function UserDashboard({ token: tokenProp }: UserDashboardProps) {
                                 const data = await res.json();
                                 setSelectedNotificationTicketDetails(data);
                                 await loadTicketHistory(ticket.id);
+                                await markTicketNotificationsAsRead(ticket.id);
                               }
                             } catch (err) {
                               console.error("Erreur chargement détails:", err);
