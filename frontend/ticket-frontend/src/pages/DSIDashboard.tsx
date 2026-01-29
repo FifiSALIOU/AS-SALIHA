@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useSearchParams, useLocation, useNavigate } from "react-router-dom";
-import { Users, Clock3, TrendingUp, Award, UserCheck, Star, LayoutDashboard, ChevronLeft, ChevronRight, Bell, BarChart3, Search, Ticket, Wrench, CheckCircle2, AlertTriangle, Clock, Briefcase, UserPlus, CornerUpRight, Box, FileText, RefreshCcw, Plus, Pencil, Trash2, ChevronDown, UserX, UserCog, Shield, Check, Layers, Monitor, X, FolderTree, Tag, Settings, Mail, Building2 } from "lucide-react";
+import { Users, User, Clock3, TrendingUp, Award, UserCheck, Star, LayoutDashboard, ChevronLeft, ChevronRight, Bell, BarChart3, Search, Ticket, Wrench, CheckCircle2, AlertTriangle, Clock, Briefcase, UserPlus, CornerUpRight, Box, FileText, RefreshCcw, Plus, Pencil, Trash2, ChevronDown, UserX, UserCog, Shield, Check, Layers, Monitor, X, FolderTree, Tag, Settings, Mail, Building2 } from "lucide-react";
 import React from "react";
 import helpdeskLogo from "../assets/helpdesk-logo.png";
 import jsPDF from "jspdf";
@@ -11047,8 +11047,8 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
                                  }}
                                >
                                  <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: 1, minWidth: 0 }}>
-                                   <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "#ffedd5", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                                     <Users size={20} color="#ea580c" strokeWidth={2} />
+                                   <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "#fff7ed", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                     <User size={20} color="#ea580c" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
                                    </div>
                                    <div style={{ minWidth: 0 }}>
                                      <div style={{ fontSize: "15px", fontWeight: "normal", fontFamily: "'Inter', system-ui, sans-serif", color: "#111827", marginBottom: "2px" }}>{member.full_name || "—"}</div>
