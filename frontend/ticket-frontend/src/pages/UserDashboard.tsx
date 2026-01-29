@@ -1592,7 +1592,13 @@ function UserDashboard({ token: tokenProp }: UserDashboardProps) {
           }} />
           {/* Bouton Notifications */}
           <div 
-            onClick={() => navigate("/dashboard/user/notifications")}
+            onClick={() => {
+              setShowTicketDetailsPage(false);
+              setTicketDetails(null);
+              setTicketHistory([]);
+              setViewTicketDetails(null);
+              navigate("/dashboard/user/notifications");
+            }}
             style={{ 
               display: "flex", 
               alignItems: "center", 
