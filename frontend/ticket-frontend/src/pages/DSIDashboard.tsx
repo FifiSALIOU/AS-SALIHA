@@ -11051,7 +11051,7 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
                                      <Users size={20} color="#ea580c" strokeWidth={2} />
                                    </div>
                                    <div style={{ minWidth: 0 }}>
-                                     <div style={{ fontSize: "15px", fontWeight: "600", color: "#111827", marginBottom: "2px" }}>{member.full_name || "—"}</div>
+                                     <div style={{ fontSize: "15px", fontWeight: "normal", fontFamily: "'Inter', system-ui, sans-serif", color: "#111827", marginBottom: "2px" }}>{member.full_name || "—"}</div>
                                      <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", color: "#6b7280" }}>
                                        <Mail size={14} color="#6b7280" />
                                        <span>{member.email || "—"}</span>
