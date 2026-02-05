@@ -1806,36 +1806,43 @@ function DSIDashboard({ token }: DSIDashboardProps) {
     }
   }, [activeSection, userRole, token]);
 
-  // Charger types et catégories pour la section Catégories (admin)
+  // Charger types et catégories pour:
+  // - la section Catégories (Admin)
+  // - la section Tickets (DSI) pour alimenter le filtre Catégorie
   useEffect(() => {
-    if (activeSection === "categories" && userRole === "Admin" && token) {
-      async function loadCategoriesData() {
-        setLoadingCategories(true);
-        try {
-          const [typesRes, categoriesRes] = await Promise.all([
-            fetch("http://localhost:8000/ticket-config/types", {
-              headers: { Authorization: `Bearer ${token}` },
-            }),
-            fetch("http://localhost:8000/ticket-config/categories", {
-              headers: { Authorization: `Bearer ${token}` },
-            }),
-          ]);
-          if (typesRes.ok) {
-            const typesData = await typesRes.json();
-            setCategoriesTypes(typesData);
-          }
-          if (categoriesRes.ok) {
-            const categoriesData = await categoriesRes.json();
-            setCategoriesList(categoriesData);
-          }
-        } catch (err) {
-          console.error("Erreur chargement catégories:", err);
-        } finally {
-          setLoadingCategories(false);
+    if (!token) return;
+
+    const isAdminCategories = activeSection === "categories" && userRole === "Admin";
+    const isDSITickets = activeSection === "tickets" && userRole === "DSI";
+
+    if (!isAdminCategories && !isDSITickets) return;
+
+    async function loadCategoriesData() {
+      setLoadingCategories(true);
+      try {
+        const [typesRes, categoriesRes] = await Promise.all([
+          fetch("http://localhost:8000/ticket-config/types", {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch("http://localhost:8000/ticket-config/categories", {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
+        if (typesRes.ok) {
+          const typesData = await typesRes.json();
+          setCategoriesTypes(typesData);
         }
+        if (categoriesRes.ok) {
+          const categoriesData = await categoriesRes.json();
+          setCategoriesList(categoriesData);
+        }
+      } catch (err) {
+        console.error("Erreur chargement catégories:", err);
+      } finally {
+        setLoadingCategories(false);
       }
-      void loadCategoriesData();
     }
+    void loadCategoriesData();
   }, [activeSection, userRole, token]);
 
   async function loadUnreadCount() {
