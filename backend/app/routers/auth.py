@@ -18,6 +18,18 @@ from ..security import (
 router = APIRouter()
 
 
+@router.get("/register-info", response_model=schemas.RegisterInfo)
+def get_register_info(db: Session = Depends(get_db)):
+    """Retourne l'id du rôle Utilisateur pour l'inscription publique (sans auth)."""
+    role = db.query(models.Role).filter(models.Role.name == "Utilisateur").first()
+    if not role:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Registration is not available",
+        )
+    return schemas.RegisterInfo(default_role_id=role.id)
+
+
 @router.post("/register", response_model=schemas.UserRead)
 def register_user(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
     existing = (

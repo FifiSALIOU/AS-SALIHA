@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import LoginPage from "./pages/LoginPage";
+import RegistrationPage from "./pages/RegistrationPage";
 import UserDashboard from "./pages/UserDashboard";
 import SecretaryDashboard from "./pages/SecretaryDashboard";
 import TechnicianDashboard from "./pages/TechnicianDashboard";
@@ -76,6 +77,7 @@ function App() {
       <Routes>
         <Route path="/" element={<LoginPage onLogin={setToken} />} />
         <Route path="/login" element={<LoginPage onLogin={setToken} />} />
+        <Route path="/inscription" element={<RegistrationPage />} />
         <Route path="/dashboard" element={getDashboard()} />
         <Route
           path="/dashboard/user"

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import type { FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import logoImage from "../assets/logo.png";
-import { Headphones, Shield, Clock, User, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
+import { Headphones, Shield, Clock, User, Lock, Eye, EyeOff, ArrowRight, UserPlus } from "lucide-react";
 
 interface LoginPageProps {
   onLogin: (token: string) => void;
@@ -639,6 +639,47 @@ function LoginPage({ onLogin }: LoginPageProps) {
               )}
             </button>
           </form>
+
+          {/* Inscription */}
+          <div style={{
+            textAlign: "center",
+            marginTop: "24px"
+          }}>
+            <p style={{
+              fontSize: "14px",
+              color: "#6b7280",
+              margin: "0 0 8px 0"
+            }}>
+              Si vous n'avez pas de compte, veuillez vous inscrire
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate("/inscription")}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "10px 20px",
+                background: "transparent",
+                border: "none",
+                borderRadius: "8px",
+                fontSize: "15px",
+                fontWeight: "600",
+                color: primaryOrange,
+                cursor: "pointer",
+                transition: "all 0.2s ease"
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(249, 115, 22, 0.08)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+              }}
+            >
+              <UserPlus size={20} />
+              Inscription maintenant
+            </button>
+          </div>
 
           {/* Séparateur avec "ou" */}
           <div style={{

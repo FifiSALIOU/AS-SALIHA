@@ -19,6 +19,11 @@ class RoleRead(RoleBase):
         from_attributes = True
 
 
+class RegisterInfo(BaseModel):
+    """Info pour l'inscription publique (rôle Utilisateur par défaut)."""
+    default_role_id: int
+
+
 class UserBase(BaseModel):
     full_name: str
     email: str  # Changed from EmailStr to str to avoid email-validator dependency issue
