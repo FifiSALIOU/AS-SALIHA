@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import type { FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Clock, CheckCircle, LayoutDashboard, PlusCircle, Ticket, ChevronLeft, ChevronRight, Bell, Wrench, Monitor, Search, Send, Info, CheckCircle2, AlertTriangle, XCircle, Check, Pencil, Trash2, RefreshCcw, FileText, UserCheck, Users } from "lucide-react";
+import { Clock, CheckCircle, LayoutDashboard, PlusCircle, Ticket, ChevronLeft, ChevronRight, Bell, Wrench, Monitor, Search, Send, Info, CheckCircle2, AlertTriangle, XCircle, Check, Pencil, Trash2, RefreshCcw, FileText, UserCheck, Users, MessageCircle } from "lucide-react";
 import helpdeskLogo from "../assets/helpdesk-logo.png";
 
 interface UserDashboardProps {
@@ -105,6 +105,13 @@ function UserDashboard({ token: tokenProp }: UserDashboardProps) {
     let iconBorder = "#E5E7EB";
     let iconColor = "#111827";
 
+    if (reason.startsWith("commentaire:") || reason.startsWith("commentaire :")) {
+      Icon = MessageCircle;
+      iconBg = "#EFF6FF";
+      iconBorder = "#BFDBFE";
+      iconColor = "#1D4ED8";
+      return { Icon, iconBg, iconBorder, iconColor };
+    }
     if (!entry.old_status || entry.new_status === "creation") {
       // Création du ticket
       Icon = FileText;
@@ -205,9 +212,13 @@ function UserDashboard({ token: tokenProp }: UserDashboardProps) {
   // Fonction helper pour déterminer le titre principal d'une entrée d'historique
   const getHistoryTitle = (entry: TicketHistory, ticket?: Ticket | null, allHistory?: TicketHistory[]): string => {
     const status = (entry.new_status || "").toLowerCase();
+    const reason = (entry.reason || "").toLowerCase();
 
     if (!entry.old_status || entry.new_status === "creation") {
       return "Création du ticket";
+    }
+    if (reason.startsWith("commentaire:") || reason.startsWith("commentaire :")) {
+      return "Commentaire ajouté";
     }
 
     if (status.includes("assigne") || status.includes("assigné") || status.includes("assign")) {

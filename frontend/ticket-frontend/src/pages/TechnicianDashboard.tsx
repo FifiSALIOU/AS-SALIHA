@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useSearchParams, useLocation, useNavigate } from "react-router-dom";
-import { ClipboardList, Clock3, CheckCircle2, LayoutDashboard, ChevronLeft, ChevronRight, Bell, Search, Box, Clock, Monitor, Wrench, FileText, UserCheck, RefreshCcw, Users } from "lucide-react";
+import { ClipboardList, Clock3, CheckCircle2, LayoutDashboard, ChevronLeft, ChevronRight, Bell, Search, Box, Clock, Monitor, Wrench, FileText, UserCheck, RefreshCcw, Users, MessageCircle } from "lucide-react";
 import helpdeskLogo from "../assets/helpdesk-logo.png";
 
 interface Notification {
@@ -152,6 +152,13 @@ function TechnicianDashboard({ token }: TechnicianDashboardProps) {
     let iconBorder = "#E5E7EB";
     let iconColor = "#111827";
 
+    if (reason.startsWith("commentaire:") || reason.startsWith("commentaire :")) {
+      Icon = MessageCircle;
+      iconBg = "#EFF6FF";
+      iconBorder = "#BFDBFE";
+      iconColor = "#1D4ED8";
+      return { Icon, iconBg, iconBorder, iconColor };
+    }
     if (!entry.old_status || entry.new_status === "creation") {
       // Création du ticket
       Icon = FileText;
@@ -215,10 +222,12 @@ function TechnicianDashboard({ token }: TechnicianDashboardProps) {
     if (!entry.old_status) {
       return "Création du ticket";
     }
-    
+    const reason = (entry.reason || "").toLowerCase();
+    if (reason.startsWith("commentaire:") || reason.startsWith("commentaire :")) {
+      return "Commentaire ajouté";
+    }
     const oldStatus = (entry.old_status || "").toLowerCase();
     const newStatus = (entry.new_status || "").toLowerCase();
-    const reason = (entry.reason || "").toLowerCase();
     
     // Cas spécifique: délégation à l'Adjoint DSI (en_attente_analyse → en_attente_analyse avec "Délégation au Adjoint DSI")
     if ((oldStatus.includes("en_attente_analyse") || oldStatus.includes("en attente analyse")) &&

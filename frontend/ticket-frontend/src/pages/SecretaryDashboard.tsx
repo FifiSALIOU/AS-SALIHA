@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, useLocation, useNavigate } from "react-router-dom";
-import { Clock3, Users, CheckCircle2, ChevronRight, ChevronLeft, ChevronDown, LayoutDashboard, Bell, Search, Clock, Monitor, Wrench, Forward, AlertTriangle, BarChart3, TrendingUp, Box, UserPlus, FileText, UserCheck, RefreshCcw, Filter, Calendar, Layers, Building2, User, FileSpreadsheet } from "lucide-react";
+import { Clock3, Users, CheckCircle2, ChevronRight, ChevronLeft, ChevronDown, LayoutDashboard, Bell, Search, Clock, Monitor, Wrench, Forward, AlertTriangle, BarChart3, TrendingUp, Box, UserPlus, FileText, UserCheck, RefreshCcw, Filter, Calendar, Layers, Building2, User, FileSpreadsheet, MessageCircle } from "lucide-react";
 import helpdeskLogo from "../assets/helpdesk-logo.png";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -269,6 +269,13 @@ function SecretaryDashboard({ token }: SecretaryDashboardProps) {
     let iconBorder = "#E5E7EB";
     let iconColor = "#111827";
 
+    if (reason.startsWith("commentaire:") || reason.startsWith("commentaire :")) {
+      Icon = MessageCircle;
+      iconBg = "#EFF6FF";
+      iconBorder = "#BFDBFE";
+      iconColor = "#1D4ED8";
+      return { Icon, iconBg, iconBorder, iconColor };
+    }
     if (!entry.old_status || entry.new_status === "creation") {
       // Création du ticket
       Icon = FileText;
@@ -332,10 +339,12 @@ function SecretaryDashboard({ token }: SecretaryDashboardProps) {
     if (!entry.old_status) {
       return "Création du ticket";
     }
-    
+    const reason = (entry.reason || "").toLowerCase();
+    if (reason.startsWith("commentaire:") || reason.startsWith("commentaire :")) {
+      return "Commentaire ajouté";
+    }
     const oldStatus = (entry.old_status || "").toLowerCase();
     const newStatus = (entry.new_status || "").toLowerCase();
-    const reason = (entry.reason || "").toLowerCase();
     
     // Cas spécifique: délégation à l'Adjoint DSI (en_attente_analyse → en_attente_analyse avec "Délégation au Adjoint DSI")
     if ((oldStatus.includes("en_attente_analyse") || oldStatus.includes("en attente analyse")) &&

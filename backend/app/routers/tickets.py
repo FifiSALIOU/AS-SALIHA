@@ -949,6 +949,16 @@ def add_comment(
         type=comment_in.type,
     )
     db.add(comment)
+    # Inscrire l'ajout du commentaire dans l'historique du ticket
+    comment_reason = f"Commentaire: {comment_in.content}"
+    history = models.TicketHistory(
+        ticket_id=ticket_id,
+        old_status=ticket.status,
+        new_status=ticket.status,
+        user_id=current_user.id,
+        reason=comment_reason,
+    )
+    db.add(history)
     db.commit()
     db.refresh(comment)
     
