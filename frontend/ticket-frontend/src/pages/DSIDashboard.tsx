@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useSearchParams, useLocation, useNavigate } from "react-router-dom";
-import { Users, User, Clock3, TrendingUp, UserCheck, Star, LayoutDashboard, ChevronLeft, ChevronRight, Bell, BarChart3, Search, Ticket, Wrench, CheckCircle, CheckCircle2, AlertTriangle, Clock, Briefcase, Box, FileText, RefreshCcw, Plus, Pencil, Trash2, ChevronDown, UserX, UserCog, Shield, Check, Layers, Monitor, X, FolderTree, Tag, Settings, Mail, Building2, Filter, Calendar, FileSpreadsheet, MessageCircle, Flag } from "lucide-react";
+import { Users, User, Clock3, TrendingUp, UserCheck, Star, LayoutDashboard, ChevronLeft, ChevronRight, Bell, BarChart3, Search, Ticket, Wrench, CheckCircle, CheckCircle2, AlertTriangle, Clock, Briefcase, Box, FileText, RefreshCcw, Plus, Pencil, Trash2, ChevronDown, UserX, UserCog, Shield, Check, Layers, Monitor, X, FolderTree, Tag, Settings, Mail, Building2, Filter, Calendar, FileSpreadsheet, MessageCircle, Flag, Share2 } from "lucide-react";
 import React from "react";
 import helpdeskLogo from "../assets/helpdesk-logo.png";
 import jsPDF from "jspdf";
@@ -9105,6 +9105,41 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
                     </select>
                   </div>
 
+                  {userRole === "DSI" && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                      {/* Délégation */}
+                        <span
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px",
+                            fontSize: "12px",
+                            color: "#6b7280",
+                          }}
+                        >
+                          <Share2 size={12} />
+                          <span>Délégation</span>
+                        </span>
+                        <select
+                          value={delegationFilter}
+                          onChange={(e) => setDelegationFilter(e.target.value)}
+                          style={{
+                            width: "100%",
+                            padding: "6px 10px",
+                            borderRadius: "8px",
+                            border: "1px solid #e5e7eb",
+                            backgroundColor: "#f9fafb",
+                            fontSize: "14px",
+                            height: "36px",
+                          }}
+                        >
+                          <option value="all">Tous</option>
+                          <option value="delegated">Tickets délégués</option>
+                          <option value="not_delegated">Tickets non délégués</option>
+                        </select>
+                    </div>
+                  )}
+
                   {/* Non résolu depuis */}
                   <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                     <span
@@ -9236,27 +9271,6 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
                     ))}
                   </select>
                 </div>
-                {userRole === "DSI" && (
-                  <div style={{ flex: 1, minWidth: "200px" }}>
-                    <label style={{ display: "block", marginBottom: "8px", fontSize: "14px", fontWeight: "500", color: "#666" }}>Filtrer par délégation</label>
-                    <select
-                      value={delegationFilter}
-                      onChange={(e) => setDelegationFilter(e.target.value)}
-                      style={{ 
-                        width: "100%", 
-                        padding: "8px 12px", 
-                        border: "1px solid #ddd", 
-                        borderRadius: "4px",
-                        fontSize: "14px",
-                        backgroundColor: "transparent"
-                      }}
-                    >
-                      <option value="all">Tous les tickets</option>
-                      <option value="delegated">Tickets délégués</option>
-                      <option value="not_delegated">Tickets non délégués</option>
-                    </select>
-                  </div>
-                )}
               </div>
               
               {/* Compteur de tickets avec icône */}
