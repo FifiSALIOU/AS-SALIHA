@@ -18360,11 +18360,8 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
               const ticket = allTickets.find(t => t.id === assignTicketId);
               return ticket ? (
                 <div style={{ marginBottom: "20px", padding: "12px", background: "#f8f9fa", borderRadius: "4px" }}>
-                  <div style={{ marginBottom: "8px" }}>
+                  <div>
                     <strong>Ticket {formatTicketNumber(ticket.number)}:</strong> {ticket.title}
-                  </div>
-                  <div style={{ fontSize: "14px", color: "#666" }}>
-                    Type: <strong>{ticket.type === "materiel" ? "Matériel" : "Applicatif"}</strong>
                   </div>
                 </div>
               ) : null;
@@ -18529,11 +18526,8 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
               const ticket = allTickets.find(t => t.id === delegateTicketId);
               return ticket ? (
                 <div style={{ marginBottom: "20px", padding: "12px", background: "#f8f9fa", borderRadius: "4px" }}>
-                  <div style={{ marginBottom: "8px" }}>
+                  <div>
                     <strong>Ticket {formatTicketNumber(ticket.number)}:</strong> {ticket.title}
-                  </div>
-                  <div style={{ fontSize: "14px", color: "#666" }}>
-                    Type: <strong>{ticket.type === "materiel" ? "Matériel" : "Applicatif"}</strong>
                   </div>
                 </div>
               ) : null;
