@@ -5481,7 +5481,13 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
   }
   
   if (priorityFilter !== "all") {
-    filteredTickets = filteredTickets.filter((t) => t.priority === priorityFilter);
+    if (priorityFilter === "non_definie") {
+      filteredTickets = filteredTickets.filter((t) =>
+        !t.priority || t.priority === "" || t.priority === "non_definie"
+      );
+    } else {
+      filteredTickets = filteredTickets.filter((t) => t.priority === priorityFilter);
+    }
   }
   
   // Filtre par délégation (UNIQUEMENT les tickets délégués par le DSI connecté)
