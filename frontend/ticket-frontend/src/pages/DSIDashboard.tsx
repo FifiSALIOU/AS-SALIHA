@@ -6423,7 +6423,7 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
         {/* Contenu principal avec scroll */}
         <div style={{
           flex: 1,
-          padding: activeSection === "notifications" ? "72px 30px 30px 0" : "120px 30px 30px 30px",
+          padding: activeSection === "notifications" ? "72px 30px 30px 0" : "72px 30px 30px 30px",
           overflow: activeSection === "notifications" ? "hidden" : "auto"
         }}>
         {/* Affichage des détails du ticket en pleine page */}
@@ -6797,7 +6797,7 @@ Les données détaillées seront disponibles dans une prochaine version.</pre>
           {activeSection === "dashboard" && (
             <>
       {/* En-tête tableau de bord DSI / Admin */}
-      <div style={{ marginTop: "4px", marginBottom: "20px" }}>
+      <div style={{ marginTop: "28px", marginBottom: "20px" }}>
         <div style={{ fontSize: "22px", fontWeight: 700, color: "#111827", marginBottom: "4px" }}>
           {userRole === "Admin" ? "Administration 🛠️" : "Tableau de bord DSI 🎯"}
         </div>
